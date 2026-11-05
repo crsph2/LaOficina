@@ -12,7 +12,7 @@ import {
   updateDoc,
   increment,
   deleteDoc,
-  setDoc // <-- NUEVO: Para guardar la posición del jugador
+  setDoc 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -32,7 +32,7 @@ const db = initializeFirestore(app, {
 });
 
 let currentUser = { name: "", avatar: "" };
-const AVATAR_STYLES = ["pixel-art", "pixel-art-neutral"]; // Estilo pixel art
+const AVATAR_STYLES = ["pixel-art", "pixel-art-neutral"]; 
 const AVATAR_SEEDS = ["Felix", "Aneka", "Milo", "Luna", "Leo", "Nina", "Oscar", "Zoe", "Max", "Chloe"];
 
 // DOM
@@ -62,7 +62,6 @@ const canvasContainer = document.getElementById("canvasContainer");
 
 // Utilidades
 function avatarUrl(style, seed) {
-  // Usamos el estilo pixel-art de DiceBear
   return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=transparent`;
 }
 function formatTime(timestamp) {
@@ -115,7 +114,7 @@ function enterApp() {
   updateProfileUI();
   loginModal.hidden = true;
   initRealtime();
-  initOffice(); // <-- Iniciar el mapa
+  initOffice(); 
 }
 loginBtn.addEventListener("click", () => { buildAvatarPicker(); loginModal.hidden = false; });
 changeAvatarBtn.addEventListener("click", () => { buildAvatarPicker(); loginModal.hidden = false; });
@@ -126,39 +125,43 @@ nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") enterApp()
 //  OFICINA VIRTUAL (CANVAS Y MOVIMIENTO)
 // ============================================================
 const ctx = officeCanvas.getContext("2d");
-let players = {}; // Almacena las posiciones de todos los jugadores { uid: { x, y, name, avatar } }
-let myPosition = { x: 400, y: 200 }; // Posición inicial local
+let players = {}; 
+let myPosition = { x: 400, y: 200 }; 
 const PLAYER_SIZE = 32;
 const MOVE_SPEED = 2;
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-
-// Referencia a la colección de posiciones en Firestore
 const positionsCollection = collection(db, "positions");
 
+// Caché de imágenes de avatares para evitar parpadeos
+const avatarImageCache = {};
+function getAvatarImage(url) {
+  if (!avatarImageCache[url]) {
+    const img = new Image();
+    img.src = url;
+    avatarImageCache[url] = img;
+  }
+  return avatarImageCache[url];
+}
+
 function initOffice() {
-  // Ajustar el tamaño del canvas al contenedor
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
 
-  // Escuchar las posiciones de todos los jugadores
   onSnapshot(positionsCollection, (snapshot) => {
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      if (docSnap.id !== currentUser.name) { // Usamos el nombre como ID único
+      if (docSnap.id !== currentUser.name) {
         players[docSnap.id] = data;
       }
     });
-    // Eliminar jugadores que ya no están (opcional, requeriría lógica de desconexión)
   });
 
-  // Guardar mi posición inicial
   savePosition();
 
-  // Configurar eventos de teclado
   officeCanvas.addEventListener("keydown", (e) => {
     if (keys.hasOwnProperty(e.key)) {
       keys[e.key] = true;
-      e.preventDefault(); // Evita el scroll de la página
+      e.preventDefault(); 
     }
   });
   officeCanvas.addEventListener("keyup", (e) => {
@@ -167,11 +170,9 @@ function initOffice() {
       e.preventDefault();
     }
   });
-  // Enfocar el canvas al hacer clic para que reciba las teclas
   officeCanvas.addEventListener("click", () => officeCanvas.focus());
   officeCanvas.focus();
 
-  // Iniciar el bucle de renderizado
   requestAnimationFrame(gameLoop);
 }
 
@@ -193,37 +194,53 @@ function update() {
   if (keys.ArrowLeft) { myPosition.x -= MOVE_SPEED; moved = true; }
   if (keys.ArrowRight) { myPosition.x += MOVE_SPEED; moved = true; }
 
-  // Limitar al área del canvas
   myPosition.x = Math.max(0, Math.min(officeCanvas.width - PLAYER_SIZE, myPosition.x));
   myPosition.y = Math.max(0, Math.min(officeCanvas.height - PLAYER_SIZE, myPosition.y));
 
-  if (moved) {
-    savePosition();
-  }
+  if (moved) savePosition();
 }
 
-// Guardar posición en Firestore (con un pequeño throttle para no saturar)
+// Guardar posición y mensaje en Firestore
 let lastSave = 0;
+let myCurrentBubble = ""; // Guarda el mensaje localmente para dibujarlo
+let myBubbleTime = 0;     // Guarda la hora en que se envió
+
 function savePosition() {
   const now = Date.now();
-  if (now - lastSave < 100) return; // Guardar como máximo cada 100ms
+  if (now - lastSave < 100) return; 
   lastSave = now;
 
-  const docRef = doc(positionsCollection, currentUser.name); // Usamos el nombre como ID
+  const docRef = doc(positionsCollection, currentUser.name);
+  
+  // Si pasaron más de 5 segundos desde el último mensaje, borramos la viñeta
+  let bubbleToSend = myCurrentBubble;
+  if (now - myBubbleTime > 5000) {
+    bubbleToSend = "";
+    myCurrentBubble = "";
+  }
+
   setDoc(docRef, {
     x: myPosition.x,
     y: myPosition.y,
     name: currentUser.name,
     avatar: currentUser.avatar,
+    bubbleText: bubbleToSend, // <-- Enviamos el texto
+    bubbleTime: myBubbleTime, // <-- Enviamos el tiempo
     lastUpdate: serverTimestamp()
   }, { merge: true });
 }
 
+// Función que se llama al enviar un mensaje de chat
+function triggerBubble(text) {
+  myCurrentBubble = text;
+  myBubbleTime = Date.now();
+  savePosition();
+}
+
 function draw() {
-  // Limpiar canvas
   ctx.clearRect(0, 0, officeCanvas.width, officeCanvas.height);
 
-  // Dibujar fondo de la oficina (cuadrícula simple)
+  // Fondo
   ctx.fillStyle = "#1e293b";
   ctx.fillRect(0, 0, officeCanvas.width, officeCanvas.height);
   ctx.strokeStyle = "#0f172a";
@@ -237,34 +254,95 @@ function draw() {
 
   // Dibujar otros jugadores
   Object.values(players).forEach((p) => {
-    drawPlayer(p.x, p.y, p.avatar, p.name);
+    drawPlayer(p.x, p.y, p.avatar, p.name, p.bubbleText, p.bubbleTime);
   });
 
   // Dibujar mi jugador
-  drawPlayer(myPosition.x, myPosition.y, currentUser.avatar, currentUser.name);
+  drawPlayer(myPosition.x, myPosition.y, currentUser.avatar, currentUser.name, myCurrentBubble, myBubbleTime);
 }
 
-function drawPlayer(x, y, avatarUrl, name) {
-  // Dibujar el avatar (como imagen)
-  const img = new Image();
-  img.src = avatarUrl;
-  // Como la imagen se carga de forma asíncrona, usamos un cuadrado de color como respaldo
-  ctx.fillStyle = "#6366f1";
-  ctx.fillRect(x, y, PLAYER_SIZE, PLAYER_SIZE);
-  // Dibujar la imagen encima (si ya se cargó)
+function drawPlayer(x, y, avatarUrl, name, bubbleText, bubbleTime) {
+  // Dibujar avatar
+  const img = getAvatarImage(avatarUrl);
   if (img.complete) {
     ctx.drawImage(img, x, y, PLAYER_SIZE, PLAYER_SIZE);
+  } else {
+    ctx.fillStyle = "#6366f1";
+    ctx.fillRect(x, y, PLAYER_SIZE, PLAYER_SIZE);
   }
 
-  // Dibujar el nombre
+  // Dibujar nombre
   ctx.fillStyle = "#fff";
-  ctx.font = "10px Inter, sans-serif";
+  ctx.font = "bold 10px Inter, sans-serif";
   ctx.textAlign = "center";
   ctx.fillText(name, x + PLAYER_SIZE / 2, y - 5);
+
+  // Dibujar viñeta si hay texto y no han pasado 5 segundos
+  if (bubbleText && bubbleText.trim() !== "") {
+    const timeElapsed = Date.now() - bubbleTime;
+    if (timeElapsed < 5000) {
+      drawBubble(x + PLAYER_SIZE / 2, y - 20, bubbleText, timeElapsed);
+    }
+  }
+}
+
+// Función para dibujar la viñeta de diálogo
+function drawBubble(cx, cy, text, timeElapsed) {
+  ctx.font = "12px Inter, sans-serif";
+  
+  // Truncar texto si es muy largo
+  let displayText = text;
+  if (displayText.length > 30) displayText = displayText.substring(0, 27) + "...";
+
+  const metrics = ctx.measureText(displayText);
+  const textWidth = metrics.width;
+  const padding = 8;
+  const bubbleWidth = textWidth + padding * 2;
+  const bubbleHeight = 28;
+
+  // Animación de aparición y desvanecimiento
+  let opacity = 1;
+  if (timeElapsed < 300) {
+    opacity = timeElapsed / 300; // Fade in
+  } else if (timeElapsed > 4500) {
+    opacity = 1 - (timeElapsed - 4500) / 500; // Fade out
+  }
+  
+  ctx.globalAlpha = Math.max(0, opacity);
+
+  // Dibujar caja redondeada
+  const bx = cx - bubbleWidth / 2;
+  const by = cy - bubbleHeight - 10;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = "#333333";
+  ctx.lineWidth = 1.5;
+  
+  ctx.beginPath();
+  ctx.roundRect(bx, by, bubbleWidth, bubbleHeight, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Dibujar flechita de la viñeta
+  ctx.beginPath();
+  ctx.moveTo(cx - 5, by + bubbleHeight);
+  ctx.lineTo(cx, by + bubbleHeight + 8);
+  ctx.lineTo(cx + 5, by + bubbleHeight);
+  ctx.fill();
+  ctx.stroke();
+
+  // Dibujar texto
+  ctx.fillStyle = "#000000";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(displayText, cx, by + bubbleHeight / 2);
+
+  // Resetear opacidad
+  ctx.globalAlpha = 1.0;
 }
 
 // ============================================================
-//  CHAT (Se mantiene igual)
+//  CHAT
 // ============================================================
 function initChat() {
   const q = query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(100));
@@ -289,11 +367,17 @@ function initChat() {
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }, (error) => console.error("Error chat:", error));
 }
+
 chatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = chatInput.value.trim();
   if (!text) return;
   chatInput.value = "";
+  
+  // 1. Mostrar la viñeta en el mapa
+  triggerBubble(text);
+
+  // 2. Enviar al chat de texto
   try {
     await addDoc(collection(db, "messages"), {
       name: currentUser.name, avatar: currentUser.avatar, text, createdAt: serverTimestamp(),
@@ -302,7 +386,7 @@ chatForm.addEventListener("submit", async (e) => {
 });
 
 // ============================================================
-//  VOTACIONES (Se mantiene igual)
+//  VOTACIONES (Sin cambios)
 // ============================================================
 function initPolls() {
   const q = query(collection(db, "polls"), orderBy("createdAt", "desc"));
@@ -402,7 +486,6 @@ function renderPoll(poll) {
   pollsContainer.appendChild(card);
 }
 
-// Crear Votación (Igual que antes)
 newPollBtn.addEventListener("click", () => {
   pollQuestion.value = "";
   isYesNoPoll.checked = false;
@@ -462,7 +545,7 @@ function checkSavedUser() {
       if (currentUser.name && currentUser.avatar) {
         updateProfileUI();
         initRealtime();
-        initOffice(); // <-- Iniciar oficina si ya está logueado
+        initOffice(); 
         return;
       }
     } catch (_) {}
