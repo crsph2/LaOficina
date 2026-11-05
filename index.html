@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Office Live · Vota y Chatea</title>
+  <title>Office Live · Vota, Chatea y Camina</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -25,10 +25,22 @@
     <button id="loginBtn" type="button" class="btn btn-primary">Entrar</button>
   </header>
 
+  <!-- NUEVA SECCIÓN: OFICINA VIRTUAL -->
+  <section class="office-section">
+    <div class="office-header">
+      <h2>🗺️ Oficina Virtual</h2>
+      <p class="office-hint">Usa las <strong>flechas</strong> del teclado para moverte. ¡Muévete para saludar a tus compañeros!</p>
+    </div>
+    <div class="canvas-container" id="canvasContainer">
+      <canvas id="officeCanvas" tabindex="0"></canvas>
+    </div>
+  </section>
+
+  <!-- LAYOUT PRINCIPAL (Votaciones y Chat) -->
   <main class="main-grid">
     <section class="panel">
       <div class="panel-header">
-        <h2>🗳️ Votaciones de la Oficina</h2>
+        <h2>🗳️ Votaciones</h2>
         <button id="newPollBtn" type="button" class="btn btn-accent">+ Nueva votación</button>
       </div>
       <div id="pollsContainer" class="polls-container">
@@ -53,10 +65,10 @@
   <div id="loginModal" class="modal-overlay" hidden>
     <div class="modal">
       <h2>👋 ¡Bienvenido/a!</h2>
-      <p>Elige tu nombre y un avatar para entrar a la sala de la oficina.</p>
+      <p>Elige tu nombre y un avatar para entrar a la oficina.</p>
       <label class="field-label">Tu nombre</label>
       <input id="nameInput" type="text" placeholder="Ej: Ana, Carlos..." maxlength="20" class="text-input" />
-      <label class="field-label">Elige tu avatar</label>
+      <label class="field-label">Elige tu avatar (Estilo Pixel Art)</label>
       <div id="avatarGrid" class="avatar-grid"></div>
       <button id="enterBtn" type="button" class="btn btn-primary btn-block">Entrar a la oficina</button>
     </div>
@@ -68,13 +80,10 @@
       <h2>✨ Nueva votación</h2>
       <label class="field-label">Pregunta</label>
       <input id="pollQuestion" type="text" placeholder="Ej: ¿Prendemos el aire?" maxlength="120" class="text-input" />
-
-      <!-- NUEVO: Checkbox para modo Sí/No -->
       <label class="checkbox-label">
         <input type="checkbox" id="isYesNoPoll" />
         <span>Modo Sí/No (Mascota animada)</span>
       </label>
-
       <div id="pollOptionsWrapper">
         <label class="field-label">Opciones (mínimo 2)</label>
         <div id="pollOptionsContainer">
@@ -83,7 +92,6 @@
         </div>
         <button id="addOptionBtn" type="button" class="btn btn-ghost">+ Añadir opción</button>
       </div>
-
       <button id="createPollBtn" type="button" class="btn btn-primary btn-block">Crear votación</button>
     </div>
   </div>
