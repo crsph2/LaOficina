@@ -11,7 +11,8 @@ import {
   doc,
   updateDoc,
   increment,
-  deleteDoc
+  deleteDoc,
+  setDoc // <-- NUEVO: Para guardar la posición del jugador
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -31,7 +32,7 @@ const db = initializeFirestore(app, {
 });
 
 let currentUser = { name: "", avatar: "" };
-const AVATAR_STYLES = ["fun-emoji", "bottts", "adventurer", "lorelei"];
+const AVATAR_STYLES = ["pixel-art", "pixel-art-neutral"]; // Estilo pixel art
 const AVATAR_SEEDS = ["Felix", "Aneka", "Milo", "Luna", "Leo", "Nina", "Oscar", "Zoe", "Max", "Chloe"];
 
 // DOM
@@ -56,10 +57,13 @@ const pollOptionsWrapper = document.getElementById("pollOptionsWrapper");
 const chatMessages = document.getElementById("chatMessages");
 const chatForm = document.getElementById("chatForm");
 const chatInput = document.getElementById("chatInput");
+const officeCanvas = document.getElementById("officeCanvas");
+const canvasContainer = document.getElementById("canvasContainer");
 
 // Utilidades
 function avatarUrl(style, seed) {
-  return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=transparent`;
+  // Usamos el estilo pixel-art de DiceBear
+  return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=transparent`;
 }
 function formatTime(timestamp) {
   if (!timestamp) return "ahora";
@@ -111,13 +115,157 @@ function enterApp() {
   updateProfileUI();
   loginModal.hidden = true;
   initRealtime();
+  initOffice(); // <-- Iniciar el mapa
 }
 loginBtn.addEventListener("click", () => { buildAvatarPicker(); loginModal.hidden = false; });
 changeAvatarBtn.addEventListener("click", () => { buildAvatarPicker(); loginModal.hidden = false; });
 enterBtn.addEventListener("click", enterApp);
 nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") enterApp(); });
 
-// Chat
+// ============================================================
+//  OFICINA VIRTUAL (CANVAS Y MOVIMIENTO)
+// ============================================================
+const ctx = officeCanvas.getContext("2d");
+let players = {}; // Almacena las posiciones de todos los jugadores { uid: { x, y, name, avatar } }
+let myPosition = { x: 400, y: 200 }; // Posición inicial local
+const PLAYER_SIZE = 32;
+const MOVE_SPEED = 2;
+const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+
+// Referencia a la colección de posiciones en Firestore
+const positionsCollection = collection(db, "positions");
+
+function initOffice() {
+  // Ajustar el tamaño del canvas al contenedor
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
+
+  // Escuchar las posiciones de todos los jugadores
+  onSnapshot(positionsCollection, (snapshot) => {
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (docSnap.id !== currentUser.name) { // Usamos el nombre como ID único
+        players[docSnap.id] = data;
+      }
+    });
+    // Eliminar jugadores que ya no están (opcional, requeriría lógica de desconexión)
+  });
+
+  // Guardar mi posición inicial
+  savePosition();
+
+  // Configurar eventos de teclado
+  officeCanvas.addEventListener("keydown", (e) => {
+    if (keys.hasOwnProperty(e.key)) {
+      keys[e.key] = true;
+      e.preventDefault(); // Evita el scroll de la página
+    }
+  });
+  officeCanvas.addEventListener("keyup", (e) => {
+    if (keys.hasOwnProperty(e.key)) {
+      keys[e.key] = false;
+      e.preventDefault();
+    }
+  });
+  // Enfocar el canvas al hacer clic para que reciba las teclas
+  officeCanvas.addEventListener("click", () => officeCanvas.focus());
+  officeCanvas.focus();
+
+  // Iniciar el bucle de renderizado
+  requestAnimationFrame(gameLoop);
+}
+
+function resizeCanvas() {
+  officeCanvas.width = canvasContainer.clientWidth;
+  officeCanvas.height = canvasContainer.clientHeight;
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+function update() {
+  let moved = false;
+  if (keys.ArrowUp) { myPosition.y -= MOVE_SPEED; moved = true; }
+  if (keys.ArrowDown) { myPosition.y += MOVE_SPEED; moved = true; }
+  if (keys.ArrowLeft) { myPosition.x -= MOVE_SPEED; moved = true; }
+  if (keys.ArrowRight) { myPosition.x += MOVE_SPEED; moved = true; }
+
+  // Limitar al área del canvas
+  myPosition.x = Math.max(0, Math.min(officeCanvas.width - PLAYER_SIZE, myPosition.x));
+  myPosition.y = Math.max(0, Math.min(officeCanvas.height - PLAYER_SIZE, myPosition.y));
+
+  if (moved) {
+    savePosition();
+  }
+}
+
+// Guardar posición en Firestore (con un pequeño throttle para no saturar)
+let lastSave = 0;
+function savePosition() {
+  const now = Date.now();
+  if (now - lastSave < 100) return; // Guardar como máximo cada 100ms
+  lastSave = now;
+
+  const docRef = doc(positionsCollection, currentUser.name); // Usamos el nombre como ID
+  setDoc(docRef, {
+    x: myPosition.x,
+    y: myPosition.y,
+    name: currentUser.name,
+    avatar: currentUser.avatar,
+    lastUpdate: serverTimestamp()
+  }, { merge: true });
+}
+
+function draw() {
+  // Limpiar canvas
+  ctx.clearRect(0, 0, officeCanvas.width, officeCanvas.height);
+
+  // Dibujar fondo de la oficina (cuadrícula simple)
+  ctx.fillStyle = "#1e293b";
+  ctx.fillRect(0, 0, officeCanvas.width, officeCanvas.height);
+  ctx.strokeStyle = "#0f172a";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < officeCanvas.width; i += 32) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, officeCanvas.height); ctx.stroke();
+  }
+  for (let i = 0; i < officeCanvas.height; i += 32) {
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(officeCanvas.width, i); ctx.stroke();
+  }
+
+  // Dibujar otros jugadores
+  Object.values(players).forEach((p) => {
+    drawPlayer(p.x, p.y, p.avatar, p.name);
+  });
+
+  // Dibujar mi jugador
+  drawPlayer(myPosition.x, myPosition.y, currentUser.avatar, currentUser.name);
+}
+
+function drawPlayer(x, y, avatarUrl, name) {
+  // Dibujar el avatar (como imagen)
+  const img = new Image();
+  img.src = avatarUrl;
+  // Como la imagen se carga de forma asíncrona, usamos un cuadrado de color como respaldo
+  ctx.fillStyle = "#6366f1";
+  ctx.fillRect(x, y, PLAYER_SIZE, PLAYER_SIZE);
+  // Dibujar la imagen encima (si ya se cargó)
+  if (img.complete) {
+    ctx.drawImage(img, x, y, PLAYER_SIZE, PLAYER_SIZE);
+  }
+
+  // Dibujar el nombre
+  ctx.fillStyle = "#fff";
+  ctx.font = "10px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(name, x + PLAYER_SIZE / 2, y - 5);
+}
+
+// ============================================================
+//  CHAT (Se mantiene igual)
+// ============================================================
 function initChat() {
   const q = query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(100));
   onSnapshot(q, (snapshot) => {
@@ -153,7 +301,9 @@ chatForm.addEventListener("submit", async (e) => {
   } catch (error) { alert("Error al enviar mensaje."); }
 });
 
-// Votaciones
+// ============================================================
+//  VOTACIONES (Se mantiene igual)
+// ============================================================
 function initPolls() {
   const q = query(collection(db, "polls"), orderBy("createdAt", "desc"));
   onSnapshot(q, (snapshot) => {
@@ -174,7 +324,6 @@ function renderPoll(poll) {
   const card = document.createElement("div");
   card.className = "poll-card";
 
-  // Renderizar botones de opción
   const optionsHtml = (poll.options || []).map((opt, idx) => {
     const count = poll.votes?.[idx] || 0;
     const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
@@ -187,14 +336,13 @@ function renderPoll(poll) {
     `;
   }).join("");
 
-  // Renderizar mascota si es Sí/No
   let mascotHtml = "";
   if (poll.isYesNo) {
     mascotHtml = `
       <div class="mascot-container">
         <div class="mascot-sign" id="sign-${poll.id}">?</div>
         <div class="mascot-avatar">
-          <img src="${currentUser.avatar || avatarUrl('fun-emoji', 'default')}" alt="Avatar" />
+          <img src="${currentUser.avatar || avatarUrl('pixel-art', 'default')}" alt="Avatar" />
         </div>
       </div>
     `;
@@ -211,7 +359,6 @@ function renderPoll(poll) {
     </div>
   `;
 
-  // Lógica del botón Eliminar
   card.querySelector(".btn-delete-poll").addEventListener("click", async (e) => {
     e.stopPropagation();
     if (confirm("¿Estás seguro de que quieres eliminar esta votación?")) {
@@ -220,64 +367,42 @@ function renderPoll(poll) {
     }
   });
 
-  // Lógica de Votos y Animación
   const votedKey = `voted_${poll.id}`;
   const hasVoted = localStorage.getItem(votedKey); 
 
-  // Si ya votó antes (incluso si recargó la página), mostrar el cartel guardado
   if (hasVoted !== null && poll.isYesNo) {
     const sign = card.querySelector(`#sign-${poll.id}`);
     if (sign) {
-      if (hasVoted === "0") {
-        sign.textContent = "SÍ";
-        sign.className = "mascot-sign show green";
-      } else if (hasVoted === "1") {
-        sign.textContent = "NO";
-        sign.className = "mascot-sign show red";
-      }
+      if (hasVoted === "0") { sign.textContent = "SÍ"; sign.className = "mascot-sign show green"; }
+      else if (hasVoted === "1") { sign.textContent = "NO"; sign.className = "mascot-sign show red"; }
     }
   }
 
   card.querySelectorAll(".poll-option-btn").forEach((btn) => {
     if (hasVoted !== null) btn.disabled = true;
-
     btn.addEventListener("click", async () => {
       if (localStorage.getItem(votedKey) !== null) return;
       const idx = btn.dataset.optionIdx;
-
       try {
-        // Guardar voto en Firebase
         await updateDoc(doc(db, "polls", poll.id), { [`votes.${idx}`]: increment(1) });
-        
-        // Guardar qué opción votó en el localStorage (0 o 1)
         localStorage.setItem(votedKey, idx);
-
-        // Animación del cartel si es Sí/No
         if (poll.isYesNo) {
           const sign = card.querySelector(`#sign-${poll.id}`);
           if (sign) {
-            if (idx === "0") {
-              sign.textContent = "SÍ";
-              sign.className = "mascot-sign show green";
-            } else {
-              sign.textContent = "NO";
-              sign.className = "mascot-sign show red";
-            }
+            if (idx === "0") { sign.textContent = "SÍ"; sign.className = "mascot-sign show green"; }
+            else { sign.textContent = "NO"; sign.className = "mascot-sign show red"; }
           }
         }
-
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ["#6366f1", "#f472b6", "#34d399"] });
         card.querySelectorAll(".poll-option-btn").forEach((b) => (b.disabled = true));
-      } catch (error) { 
-        alert("Error al registrar el voto."); 
-      }
+      } catch (error) { alert("Error al registrar el voto."); }
     });
   });
 
   pollsContainer.appendChild(card);
 }
 
-// Crear Votación
+// Crear Votación (Igual que antes)
 newPollBtn.addEventListener("click", () => {
   pollQuestion.value = "";
   isYesNoPoll.checked = false;
@@ -289,13 +414,8 @@ newPollBtn.addEventListener("click", () => {
   pollModal.hidden = false;
 });
 
-// Evento al marcar/desmarcar la casilla de Sí/No
 isYesNoPoll.addEventListener("change", (e) => {
-  if (e.target.checked) {
-    pollOptionsWrapper.style.display = "none"; // Ocultamos las opciones personalizadas
-  } else {
-    pollOptionsWrapper.style.display = "block";
-  }
+  pollOptionsWrapper.style.display = e.target.checked ? "none" : "block";
 });
 
 addOptionBtn.addEventListener("click", (e) => {
@@ -314,35 +434,22 @@ createPollBtn.addEventListener("click", async (e) => {
   e.preventDefault(); 
   const question = pollQuestion.value.trim();
   const isYesNo = isYesNoPoll.checked;
-
   let options = [];
-  if (isYesNo) {
-    options = ["Sí", "No"]; // Forzamos las opciones
-  } else {
+  if (isYesNo) { options = ["Sí", "No"]; }
+  else {
     const optionInputs = [...pollOptionsContainer.querySelectorAll(".poll-option")];
     options = optionInputs.map(i => i.value.trim()).filter(Boolean);
   }
-
   if (!question) return alert("Escribe una pregunta.");
   if (options.length < 2) return alert("Necesitas al menos 2 opciones.");
-  
   const votes = {};
   options.forEach((_, i) => (votes[i] = 0));
-
   try {
     await addDoc(collection(db, "polls"), {
-      question, 
-      options, 
-      votes, 
-      isYesNo, // Guardamos si es del tipo Sí/No
-      creator: currentUser.name || "Anónimo", 
-      createdAt: serverTimestamp(),
+      question, options, votes, isYesNo, creator: currentUser.name || "Anónimo", createdAt: serverTimestamp(),
     });
     pollModal.hidden = true;
-  } catch (error) {
-    console.error("❌ ERROR:", error);
-    alert("Error de Firebase al crear la votación.");
-  }
+  } catch (error) { alert("Error de Firebase al crear la votación."); }
 });
 
 // Inicio
@@ -355,6 +462,7 @@ function checkSavedUser() {
       if (currentUser.name && currentUser.avatar) {
         updateProfileUI();
         initRealtime();
+        initOffice(); // <-- Iniciar oficina si ya está logueado
         return;
       }
     } catch (_) {}
