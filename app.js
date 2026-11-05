@@ -1,24 +1,9 @@
-// ============================================================
-//  OFFICE LIVE · Votaciones y Chat en tiempo real
-//  Backend: Firebase Firestore (serverless para GitHub Pages)
-// ============================================================
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getFirestore,
-  collection,
-  addDoc,
-  onSnapshot,
-  query,
-  orderBy,
-  limit,
-  serverTimestamp,
-  doc,
-  updateDoc,
-  increment
+  getFirestore, collection, addDoc, onSnapshot, query, orderBy,
+  limit, serverTimestamp, doc, updateDoc, increment
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Configuración de Firebase del usuario
 const firebaseConfig = {
   apiKey: "AIzaSyDJE3mYAvvOyrmL2riktXB-mdt0iH2iN5k",
   authDomain: "laoficina-81e4a.firebaseapp.com",
@@ -29,36 +14,23 @@ const firebaseConfig = {
   measurementId: "G-ER0ZYJ270J"
 };
 
-// Inicializar Firebase y Firestore
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app); // <-- ESTA LÍNEA ES VITAL Y FALTABA EN TU CÓDIGO
+const db = getFirestore(app);
 
-// ============================================================
-//  ESTADO LOCAL
-// ============================================================
-let currentUser = {
-  name: "",
-  avatar: "",
-};
-
-// Semillas para los avatares (estilos DiceBear)
+let currentUser = { name: "", avatar: "" };
 const AVATAR_STYLES = ["fun-emoji", "bottts", "adventurer", "lorelei"];
 const AVATAR_SEEDS = ["Felix", "Aneka", "Milo", "Luna", "Leo", "Nina", "Oscar", "Zoe", "Max", "Chloe"];
 
-// ============================================================
-//  ELEMENTOS DEL DOM
-// ============================================================
+// Elementos del DOM
 const loginBtn = document.getElementById("loginBtn");
 const userProfile = document.getElementById("userProfile");
 const headerAvatar = document.getElementById("headerAvatar");
 const headerName = document.getElementById("headerName");
 const changeAvatarBtn = document.getElementById("changeAvatarBtn");
-
 const loginModal = document.getElementById("loginModal");
 const nameInput = document.getElementById("nameInput");
 const avatarGrid = document.getElementById("avatarGrid");
 const enterBtn = document.getElementById("enterBtn");
-
 const pollsContainer = document.getElementById("pollsContainer");
 const newPollBtn = document.getElementById("newPollBtn");
 const pollModal = document.getElementById("pollModal");
@@ -66,36 +38,27 @@ const pollQuestion = document.getElementById("pollQuestion");
 const pollOptionsContainer = document.getElementById("pollOptionsContainer");
 const addOptionBtn = document.getElementById("addOptionBtn");
 const createPollBtn = document.getElementById("createPollBtn");
-
 const chatMessages = document.getElementById("chatMessages");
 const chatForm = document.getElementById("chatForm");
 const chatInput = document.getElementById("chatInput");
 
-// ============================================================
-//  UTILIDADES
-// ============================================================
+// Utilidades
 function avatarUrl(style, seed) {
   return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=transparent`;
 }
-
 function formatTime(timestamp) {
   if (!timestamp) return "ahora";
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   return date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 }
-
-function showModal(modal) {
-  modal.hidden = false;
-}
-function hideModal(modal) {
-  modal.hidden = true;
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
 }
 
-// ============================================================
-//  LOGIN / SELECCIÓN DE AVATAR
-// ============================================================
+// Login y Avatares
 let selectedAvatarUrl = "";
-
 function buildAvatarPicker() {
   avatarGrid.innerHTML = "";
   AVATAR_STYLES.forEach((style) => {
@@ -104,7 +67,6 @@ function buildAvatarPicker() {
       const img = document.createElement("img");
       img.src = url;
       img.className = "avatar-option";
-      img.alt = `Avatar ${seed}`;
       img.addEventListener("click", () => {
         document.querySelectorAll(".avatar-option").forEach((el) => el.classList.remove("selected"));
         img.classList.add("selected");
@@ -113,36 +75,8 @@ function buildAvatarPicker() {
       avatarGrid.appendChild(img);
     });
   });
-
-  // Seleccionar el primero por defecto
   const first = avatarGrid.querySelector(".avatar-option");
-  if (first) {
-    first.classList.add("selected");
-    selectedAvatarUrl = first.src;
-  }
-}
-
-function enterApp() {
-  const name = nameInput.value.trim();
-  if (!name) {
-    alert("Por favor, escribe tu nombre.");
-    return;
-  }
-  if (!selectedAvatarUrl) {
-    alert("Elige un avatar.");
-    return;
-  }
-
-  currentUser.name = name;
-  currentUser.avatar = selectedAvatarUrl;
-
-  // Persistencia local (para recargar sin volver a entrar)
-  localStorage.setItem("officeLiveUser", JSON.stringify(currentUser));
-
-  updateProfileUI();
-  hideModal(loginModal);
-  loadChat();
-  loadPolls();
+  if (first) { first.classList.add("selected"); selectedAvatarUrl = first.src; }
 }
 
 function updateProfileUI() {
@@ -152,105 +86,69 @@ function updateProfileUI() {
   loginBtn.hidden = true;
 }
 
-function checkSavedUser() {
-  const saved = localStorage.getItem("officeLiveUser");
-  if (saved) {
-    try {
-      currentUser = JSON.parse(saved);
-      if (currentUser.name && currentUser.avatar) {
-        updateProfileUI();
-        loadChat();
-        loadPolls();
-        return;
-      }
-    } catch (_) {}
-  }
-  // Si no hay usuario guardado, abrir modal
-  buildAvatarPicker();
-  showModal(loginModal);
+function enterApp() {
+  const name = nameInput.value.trim();
+  if (!name) return alert("Por favor, escribe tu nombre.");
+  if (!selectedAvatarUrl) return alert("Elige un avatar.");
+  
+  currentUser.name = name;
+  currentUser.avatar = selectedAvatarUrl;
+  localStorage.setItem("officeLiveUser", JSON.stringify(currentUser));
+  
+  updateProfileUI();
+  loginModal.hidden = true;
+  initRealtime();
 }
 
-// Eventos de login
-loginBtn.addEventListener("click", () => {
-  buildAvatarPicker();
-  showModal(loginModal);
-});
-
-changeAvatarBtn.addEventListener("click", () => {
-  buildAvatarPicker();
-  showModal(loginModal);
-});
-
+loginBtn.addEventListener("click", () => { buildAvatarPicker(); loginModal.hidden = false; });
+changeAvatarBtn.addEventListener("click", () => { buildAvatarPicker(); loginModal.hidden = false; });
 enterBtn.addEventListener("click", enterApp);
+nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") enterApp(); });
 
-nameInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") enterApp();
-});
-
-// ============================================================
-//  CHAT EN VIVO
-// ============================================================
-let chatUnsubscribe = null;
-
-function loadChat() {
-  if (chatUnsubscribe) chatUnsubscribe();
-
-  const q = query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(200));
-  chatUnsubscribe = onSnapshot(q, (snapshot) => {
+// Lógica del Chat
+function initChat() {
+  const q = query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(100));
+  onSnapshot(q, (snapshot) => {
     chatMessages.innerHTML = "";
     snapshot.forEach((docSnap) => {
       const msg = docSnap.data();
-      renderChatMessage(msg);
+      const div = document.createElement("div");
+      div.className = "chat-message";
+      div.innerHTML = `
+        <img class="msg-avatar" src="${msg.avatar}" alt="${msg.name}" />
+        <div class="msg-body">
+          <div class="msg-header">
+            <span class="msg-name">${escapeHtml(msg.name)}</span>
+            <span class="msg-time">${formatTime(msg.createdAt)}</span>
+          </div>
+          <div class="msg-text">${escapeHtml(msg.text)}</div>
+        </div>
+      `;
+      chatMessages.appendChild(div);
     });
-    // Scroll al final
     chatMessages.scrollTop = chatMessages.scrollHeight;
-  });
-}
-
-function renderChatMessage(msg) {
-  const div = document.createElement("div");
-  div.className = "chat-message";
-  div.innerHTML = `
-    <img class="msg-avatar" src="${msg.avatar || avatarUrl("fun-emoji", "default")}" alt="${msg.name}" />
-    <div class="msg-body">
-      <div class="msg-header">
-        <span class="msg-name">${escapeHtml(msg.name)}</span>
-        <span class="msg-time">${formatTime(msg.createdAt)}</span>
-      </div>
-      <div class="msg-text">${escapeHtml(msg.text)}</div>
-    </div>
-  `;
-  chatMessages.appendChild(div);
-}
-
-async function sendChatMessage(text) {
-  if (!text.trim() || !currentUser.name) return;
-
-  await addDoc(collection(db, "messages"), {
-    name: currentUser.name,
-    avatar: currentUser.avatar,
-    text: text.trim(),
-    createdAt: serverTimestamp(),
   });
 }
 
 chatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const text = chatInput.value;
+  const text = chatInput.value.trim();
+  if (!text) return;
   chatInput.value = "";
-  await sendChatMessage(text);
+  try {
+    await addDoc(collection(db, "messages"), {
+      name: currentUser.name, avatar: currentUser.avatar, text, createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Error al enviar mensaje:", error);
+    alert("Error al enviar mensaje. Revisa la consola (F12).");
+  }
 });
 
-// ============================================================
-//  VOTACIONES
-// ============================================================
-let pollsUnsubscribe = null;
-
-function loadPolls() {
-  if (pollsUnsubscribe) pollsUnsubscribe();
-
+// Lógica de Votaciones
+function initPolls() {
   const q = query(collection(db, "polls"), orderBy("createdAt", "desc"));
-  pollsUnsubscribe = onSnapshot(q, (snapshot) => {
+  onSnapshot(q, (snapshot) => {
     pollsContainer.innerHTML = "";
     if (snapshot.empty) {
       pollsContainer.innerHTML = `<p class="empty-state">Aún no hay votaciones. ¡Crea la primera! 🚀</p>`;
@@ -265,23 +163,20 @@ function loadPolls() {
 
 function renderPoll(poll) {
   const totalVotes = Object.values(poll.votes || {}).reduce((a, b) => a + b, 0);
-
   const card = document.createElement("div");
   card.className = "poll-card";
 
-  const optionsHtml = (poll.options || [])
-    .map((opt, idx) => {
-      const count = poll.votes?.[idx] || 0;
-      const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
-      return `
-        <button class="poll-option-btn" data-poll-id="${poll.id}" data-option-idx="${idx}">
-          <span class="option-bar" style="width:${percent}%"></span>
-          <span class="option-text">${escapeHtml(opt)}</span>
-          <span class="option-count">${count} · ${percent}%</span>
-        </button>
-      `;
-    })
-    .join("");
+  const optionsHtml = poll.options.map((opt, idx) => {
+    const count = poll.votes?.[idx] || 0;
+    const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+    return `
+      <button class="poll-option-btn" data-poll-id="${poll.id}" data-option-idx="${idx}">
+        <span class="option-bar" style="width:${percent}%"></span>
+        <span class="option-text">${escapeHtml(opt)}</span>
+        <span class="option-count">${count} · ${percent}%</span>
+      </button>
+    `;
+  }).join("");
 
   card.innerHTML = `
     <div class="poll-question">${escapeHtml(poll.question)}</div>
@@ -292,60 +187,43 @@ function renderPoll(poll) {
     </div>
   `;
 
-  // Deshabilitar si ya votó (localStorage)
   const votedKey = `voted_${poll.id}`;
   const hasVoted = localStorage.getItem(votedKey);
 
   card.querySelectorAll(".poll-option-btn").forEach((btn) => {
     if (hasVoted) btn.disabled = true;
-
     btn.addEventListener("click", async () => {
       if (localStorage.getItem(votedKey)) return;
-
       const idx = btn.dataset.optionIdx;
-      const pollRef = doc(db, "polls", poll.id);
-
-      // Incremento atómico (evita condiciones de carrera)
-      await updateDoc(pollRef, {
-        [`votes.${idx}`]: increment(1),
-      });
-
-      localStorage.setItem(votedKey, "true");
-
-      // 🎉 Confetti
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ["#6366f1", "#f472b6", "#34d399", "#fbbf24"],
-      });
-
-      // Deshabilitar todos los botones de esta tarjeta
-      card.querySelectorAll(".poll-option-btn").forEach((b) => (b.disabled = true));
+      try {
+        await updateDoc(doc(db, "polls", poll.id), { [`votes.${idx}`]: increment(1) });
+        localStorage.setItem(votedKey, "true");
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ["#6366f1", "#f472b6", "#34d399"] });
+        card.querySelectorAll(".poll-option-btn").forEach((b) => (b.disabled = true));
+      } catch (error) {
+        console.error("Error al votar:", error);
+        alert("Error al registrar el voto.");
+      }
     });
   });
 
   pollsContainer.appendChild(card);
 }
 
-// ============================================================
-//  CREAR VOTACIÓN
-// ============================================================
+// Crear Votación
 newPollBtn.addEventListener("click", () => {
   pollQuestion.value = "";
   pollOptionsContainer.innerHTML = `
     <input type="text" class="text-input poll-option" placeholder="Opción 1" maxlength="60" />
     <input type="text" class="text-input poll-option" placeholder="Opción 2" maxlength="60" />
   `;
-  showModal(pollModal);
+  pollModal.hidden = false;
 });
 
-addOptionBtn.addEventListener("click", () => {
+addOptionBtn.addEventListener("click", (e) => {
+  e.preventDefault(); // Evita recargas accidentales
   const count = pollOptionsContainer.querySelectorAll(".poll-option").length;
-  if (count >= 6) {
-    alert("Máximo 6 opciones.");
-    return;
-  }
+  if (count >= 6) return alert("Máximo 6 opciones.");
   const input = document.createElement("input");
   input.type = "text";
   input.className = "text-input poll-option";
@@ -354,44 +232,56 @@ addOptionBtn.addEventListener("click", () => {
   pollOptionsContainer.appendChild(input);
 });
 
-createPollBtn.addEventListener("click", async () => {
+createPollBtn.addEventListener("click", async (e) => {
+  e.preventDefault(); // Evita recargas accidentales
+  console.log("Botón Crear Votación presionado"); // Para debug
+
   const question = pollQuestion.value.trim();
   const optionInputs = [...pollOptionsContainer.querySelectorAll(".poll-option")];
-  const options = optionInputs.map((i) => i.value.trim()).filter(Boolean);
+  const options = optionInputs.map(i => i.value.trim()).filter(Boolean);
 
-  if (!question) {
-    alert("Escribe una pregunta.");
-    return;
-  }
-  if (options.length < 2) {
-    alert("Necesitas al menos 2 opciones.");
-    return;
-  }
+  if (!question) return alert("Escribe una pregunta.");
+  if (options.length < 2) return alert("Necesitas al menos 2 opciones.");
 
   const votes = {};
   options.forEach((_, i) => (votes[i] = 0));
 
-  await addDoc(collection(db, "polls"), {
-    question,
-    options,
-    votes,
-    creator: currentUser.name,
-    createdAt: serverTimestamp(),
-  });
-
-  hideModal(pollModal);
+  try {
+    // Aquí es donde Firebase puede fallar si las reglas están mal
+    await addDoc(collection(db, "polls"), {
+      question, 
+      options, 
+      votes, 
+      creator: currentUser.name || "Anónimo", 
+      createdAt: serverTimestamp(),
+    });
+    pollModal.hidden = true;
+  } catch (error) {
+    console.error("Error de Firebase al crear votación:", error);
+    alert("No se pudo crear la votación. Revisa la consola (F12). Asegúrate de que Firestore esté en 'Modo de prueba'.");
+  }
 });
 
-// ============================================================
-//  ESCAPE HTML (seguridad básica)
-// ============================================================
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
+// Inicialización
+function initRealtime() {
+  initChat();
+  initPolls();
 }
 
-// ============================================================
-//  INICIALIZACIÓN
-// ============================================================
+function checkSavedUser() {
+  const saved = localStorage.getItem("officeLiveUser");
+  if (saved) {
+    try {
+      currentUser = JSON.parse(saved);
+      if (currentUser.name && currentUser.avatar) {
+        updateProfileUI();
+        initRealtime();
+        return;
+      }
+    } catch (_) {}
+  }
+  buildAvatarPicker();
+  loginModal.hidden = false;
+}
+
 checkSavedUser();
