@@ -21,7 +21,7 @@ body {
   background: var(--bg);
   color: var(--text);
   height: 100vh; /* Fuerza altura completa */
-  overflow: hidden; /* Evita scroll en la página principal (PC) */
+  overflow: hidden; /* Evita scroll en la página principal (Optimizado para PC) */
   display: flex;
   flex-direction: column;
 }
@@ -140,11 +140,15 @@ body {
 .online-dot { width: 12px; height: 12px; background: var(--success); border-radius: 50%; box-shadow: 0 0 10px var(--success); animation: pulse 2s infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-/* ---------- MODALES (Optimizados) ---------- */
+/* ---------- MODALES ---------- */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(2, 6, 23, 0.7);
   backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center;
   z-index: 100; padding: 20px; animation: fadeIn 0.2s ease;
+}
+/* 🔥 ESTA ES LA REGLA QUE SOLUCIONA EL BOTÓN DE CREAR VOTACIÓN */
+.modal-overlay[hidden] {
+  display: none !important;
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal {
@@ -162,7 +166,7 @@ body {
 }
 .text-input:focus { border-color: var(--primary); }
 
-/* Grid de avatares más grande para PC */
+/* Grid de avatares */
 .avatar-grid {
   display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
   margin-top: 10px; max-height: 240px; overflow-y: auto; padding: 4px;
