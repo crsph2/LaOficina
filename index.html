@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Office Live · Vota y Chatea</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- Fuente moderna -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 </head>
@@ -28,17 +27,16 @@
     <button id="loginBtn" class="btn btn-primary">Entrar</button>
   </header>
 
-  <!-- Layout principal -->
+  <!-- Layout principal (Optimizado para PC) -->
   <main class="main-grid">
 
     <!-- Panel de Votaciones -->
     <section class="panel">
       <div class="panel-header">
-        <h2>🗳️ Votaciones</h2>
+        <h2>🗳️ Votaciones de la Oficina</h2>
         <button id="newPollBtn" class="btn btn-accent">+ Nueva votación</button>
       </div>
       <div id="pollsContainer" class="polls-container">
-        <!-- Las encuestas se renderizan aquí -->
         <p class="empty-state">Aún no hay votaciones. ¡Crea la primera! 🚀</p>
       </div>
     </section>
@@ -64,7 +62,7 @@
   <div id="loginModal" class="modal-overlay" hidden>
     <div class="modal">
       <h2>👋 ¡Bienvenido/a!</h2>
-      <p>Elige tu nombre y un avatar para entrar a la sala.</p>
+      <p>Elige tu nombre y un avatar para entrar a la sala de la oficina.</p>
 
       <label class="field-label">Tu nombre</label>
       <input id="nameInput" type="text" placeholder="Ej: Ana, Carlos..." maxlength="20" class="text-input" />
@@ -78,7 +76,7 @@
     </div>
   </div>
 
-  <!-- MODAL: Crear votación -->
+  <!-- MODAL: Crear votación (Exactamente como en tu captura) -->
   <div id="pollModal" class="modal-overlay" hidden>
     <div class="modal">
       <h2>✨ Nueva votación</h2>
@@ -96,9 +94,8 @@
     </div>
   </div>
 
-  <!-- SDK de Firebase (modular v9) -->
+  <!-- Firebase y Confetti -->
   <script type="module" src="app.js"></script>
-  <!-- Confetti para celebrar votos -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 </body>
 </html>
