@@ -25,18 +25,16 @@
     <button id="loginBtn" type="button" class="btn btn-primary">Entrar</button>
   </header>
 
-  <!-- NUEVA SECCIÓN: OFICINA VIRTUAL -->
   <section class="office-section">
     <div class="office-header">
       <h2>🗺️ Oficina Virtual</h2>
-      <p class="office-hint">Usa las <strong>flechas</strong> del teclado para moverte. ¡Muévete para saludar a tus compañeros!</p>
+      <p class="office-hint">Usa las <strong>flechas</strong> para moverte. ¡Escribe en el chat y tu avatar hablará!</p>
     </div>
     <div class="canvas-container" id="canvasContainer">
       <canvas id="officeCanvas" tabindex="0"></canvas>
     </div>
   </section>
 
-  <!-- LAYOUT PRINCIPAL (Votaciones y Chat) -->
   <main class="main-grid">
     <section class="panel">
       <div class="panel-header">
@@ -53,6 +51,8 @@
         <h2>💬 Chat en vivo</h2>
         <span class="online-dot" title="Conectado"></span>
       </div>
+      <!-- Texto añadido -->
+      <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 10px; margin-top: -10px;">Los mensajes también aparecen sobre tu avatar en el mapa.</p>
       <div id="chatMessages" class="chat-messages"></div>
       <form id="chatForm" class="chat-form">
         <input id="chatInput" type="text" placeholder="Escribe un mensaje..." autocomplete="off" maxlength="300" />
