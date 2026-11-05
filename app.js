@@ -1,7 +1,3 @@
-// ============================================================
-//  OFFICE LIVE · Votaciones y Chat en tiempo real
-// ============================================================
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   initializeFirestore, 
@@ -15,7 +11,7 @@ import {
   doc,
   updateDoc,
   increment,
-  deleteDoc // <-- NUEVO: Importamos deleteDoc para eliminar
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -55,6 +51,8 @@ const pollQuestion = document.getElementById("pollQuestion");
 const pollOptionsContainer = document.getElementById("pollOptionsContainer");
 const addOptionBtn = document.getElementById("addOptionBtn");
 const createPollBtn = document.getElementById("createPollBtn");
+const isYesNoPoll = document.getElementById("isYesNoPoll");
+const pollOptionsWrapper = document.getElementById("pollOptionsWrapper");
 const chatMessages = document.getElementById("chatMessages");
 const chatForm = document.getElementById("chatForm");
 const chatInput = document.getElementById("chatInput");
@@ -176,6 +174,7 @@ function renderPoll(poll) {
   const card = document.createElement("div");
   card.className = "poll-card";
 
+  // Renderizar botones de opción
   const optionsHtml = (poll.options || []).map((opt, idx) => {
     const count = poll.votes?.[idx] || 0;
     const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
@@ -188,10 +187,23 @@ function renderPoll(poll) {
     `;
   }).join("");
 
-  // Añadimos el botón de eliminar (🗑️) en la cabecera de la tarjeta
+  // Renderizar mascota si es Sí/No
+  let mascotHtml = "";
+  if (poll.isYesNo) {
+    mascotHtml = `
+      <div class="mascot-container">
+        <div class="mascot-sign" id="sign-${poll.id}">?</div>
+        <div class="mascot-avatar">
+          <img src="${currentUser.avatar || avatarUrl('fun-emoji', 'default')}" alt="Avatar" />
+        </div>
+      </div>
+    `;
+  }
+
   card.innerHTML = `
     <button class="btn-delete-poll" title="Eliminar votación">🗑️</button>
     <div class="poll-question">${escapeHtml(poll.question)}</div>
+    ${mascotHtml}
     <div class="poll-options">${optionsHtml}</div>
     <div class="poll-footer">
       <span>${totalVotes} voto${totalVotes !== 1 ? "s" : ""}</span>
@@ -203,30 +215,62 @@ function renderPoll(poll) {
   card.querySelector(".btn-delete-poll").addEventListener("click", async (e) => {
     e.stopPropagation();
     if (confirm("¿Estás seguro de que quieres eliminar esta votación?")) {
-      try {
-        await deleteDoc(doc(db, "polls", poll.id));
-      } catch (error) {
-        console.error("Error al eliminar:", error);
-        alert("No se pudo eliminar la votación. Revisa los permisos.");
-      }
+      try { await deleteDoc(doc(db, "polls", poll.id)); } 
+      catch (error) { alert("No se pudo eliminar."); }
     }
   });
 
-  // Lógica de Votos
+  // Lógica de Votos y Animación
   const votedKey = `voted_${poll.id}`;
-  const hasVoted = localStorage.getItem(votedKey);
+  const hasVoted = localStorage.getItem(votedKey); 
+
+  // Si ya votó antes (incluso si recargó la página), mostrar el cartel guardado
+  if (hasVoted !== null && poll.isYesNo) {
+    const sign = card.querySelector(`#sign-${poll.id}`);
+    if (sign) {
+      if (hasVoted === "0") {
+        sign.textContent = "SÍ";
+        sign.className = "mascot-sign show green";
+      } else if (hasVoted === "1") {
+        sign.textContent = "NO";
+        sign.className = "mascot-sign show red";
+      }
+    }
+  }
 
   card.querySelectorAll(".poll-option-btn").forEach((btn) => {
-    if (hasVoted) btn.disabled = true;
+    if (hasVoted !== null) btn.disabled = true;
+
     btn.addEventListener("click", async () => {
-      if (localStorage.getItem(votedKey)) return;
+      if (localStorage.getItem(votedKey) !== null) return;
       const idx = btn.dataset.optionIdx;
+
       try {
+        // Guardar voto en Firebase
         await updateDoc(doc(db, "polls", poll.id), { [`votes.${idx}`]: increment(1) });
-        localStorage.setItem(votedKey, "true");
+        
+        // Guardar qué opción votó en el localStorage (0 o 1)
+        localStorage.setItem(votedKey, idx);
+
+        // Animación del cartel si es Sí/No
+        if (poll.isYesNo) {
+          const sign = card.querySelector(`#sign-${poll.id}`);
+          if (sign) {
+            if (idx === "0") {
+              sign.textContent = "SÍ";
+              sign.className = "mascot-sign show green";
+            } else {
+              sign.textContent = "NO";
+              sign.className = "mascot-sign show red";
+            }
+          }
+        }
+
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ["#6366f1", "#f472b6", "#34d399"] });
         card.querySelectorAll(".poll-option-btn").forEach((b) => (b.disabled = true));
-      } catch (error) { alert("Error al registrar el voto."); }
+      } catch (error) { 
+        alert("Error al registrar el voto."); 
+      }
     });
   });
 
@@ -236,11 +280,22 @@ function renderPoll(poll) {
 // Crear Votación
 newPollBtn.addEventListener("click", () => {
   pollQuestion.value = "";
+  isYesNoPoll.checked = false;
+  pollOptionsWrapper.style.display = "block";
   pollOptionsContainer.innerHTML = `
     <input type="text" class="text-input poll-option" placeholder="Opción 1" maxlength="60" />
     <input type="text" class="text-input poll-option" placeholder="Opción 2" maxlength="60" />
   `;
   pollModal.hidden = false;
+});
+
+// Evento al marcar/desmarcar la casilla de Sí/No
+isYesNoPoll.addEventListener("change", (e) => {
+  if (e.target.checked) {
+    pollOptionsWrapper.style.display = "none"; // Ocultamos las opciones personalizadas
+  } else {
+    pollOptionsWrapper.style.display = "block";
+  }
 });
 
 addOptionBtn.addEventListener("click", (e) => {
@@ -258,8 +313,15 @@ addOptionBtn.addEventListener("click", (e) => {
 createPollBtn.addEventListener("click", async (e) => {
   e.preventDefault(); 
   const question = pollQuestion.value.trim();
-  const optionInputs = [...pollOptionsContainer.querySelectorAll(".poll-option")];
-  const options = optionInputs.map(i => i.value.trim()).filter(Boolean);
+  const isYesNo = isYesNoPoll.checked;
+
+  let options = [];
+  if (isYesNo) {
+    options = ["Sí", "No"]; // Forzamos las opciones
+  } else {
+    const optionInputs = [...pollOptionsContainer.querySelectorAll(".poll-option")];
+    options = optionInputs.map(i => i.value.trim()).filter(Boolean);
+  }
 
   if (!question) return alert("Escribe una pregunta.");
   if (options.length < 2) return alert("Necesitas al menos 2 opciones.");
@@ -269,7 +331,12 @@ createPollBtn.addEventListener("click", async (e) => {
 
   try {
     await addDoc(collection(db, "polls"), {
-      question, options, votes, creator: currentUser.name || "Anónimo", createdAt: serverTimestamp(),
+      question, 
+      options, 
+      votes, 
+      isYesNo, // Guardamos si es del tipo Sí/No
+      creator: currentUser.name || "Anónimo", 
+      createdAt: serverTimestamp(),
     });
     pollModal.hidden = true;
   } catch (error) {
