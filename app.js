@@ -21,16 +21,18 @@ import {
 
 // ⚠️ REEMPLAZA CON TU CONFIGURACIÓN DE FIREBASE
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROYECTO",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID",
+  apiKey: "AIzaSyDJE3mYAvvOyrmL2riktXB-mdt0iH2iN5k",
+  authDomain: "laoficina-81e4a.firebaseapp.com",
+  projectId: "laoficina-81e4a",
+  storageBucket: "laoficina-81e4a.firebasestorage.app",
+  messagingSenderId: "733303320739",
+  appId: "1:733303320739:web:b24a466bcad169c21c4f16",
+  measurementId: "G-ER0ZYJ270J"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const analytics = getAnalytics(app);
 
 // ============================================================
 //  ESTADO LOCAL
