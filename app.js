@@ -15,11 +15,10 @@ import {
   serverTimestamp,
   doc,
   updateDoc,
-  increment,
-  getDoc,
+  increment
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ⚠️ REEMPLAZA CON TU CONFIGURACIÓN DE FIREBASE
+// Configuración de Firebase del usuario
 const firebaseConfig = {
   apiKey: "AIzaSyDJE3mYAvvOyrmL2riktXB-mdt0iH2iN5k",
   authDomain: "laoficina-81e4a.firebaseapp.com",
@@ -30,9 +29,9 @@ const firebaseConfig = {
   measurementId: "G-ER0ZYJ270J"
 };
 
-// Initialize Firebase
+// Inicializar Firebase y Firestore
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+const db = getFirestore(app); // <-- ESTA LÍNEA ES VITAL Y FALTABA EN TU CÓDIGO
 
 // ============================================================
 //  ESTADO LOCAL
@@ -44,7 +43,7 @@ let currentUser = {
 
 // Semillas para los avatares (estilos DiceBear)
 const AVATAR_STYLES = ["fun-emoji", "bottts", "adventurer", "lorelei"];
-const AVATAR_SEEDS = ["Felix", "Aneka", "Milo", "Luna", "Leo", "Nina", "Oscar", "Zoe"];
+const AVATAR_SEEDS = ["Felix", "Aneka", "Milo", "Luna", "Leo", "Nina", "Oscar", "Zoe", "Max", "Chloe"];
 
 // ============================================================
 //  ELEMENTOS DEL DOM
