@@ -10,10 +10,8 @@
 </head>
 <body>
 
-  <!-- Fondo animado -->
   <div class="aurora-bg"></div>
 
-  <!-- Cabecera con perfil -->
   <header class="topbar">
     <div class="logo">
       <span class="logo-icon">🏢</span>
@@ -22,61 +20,49 @@
     <div class="user-profile" id="userProfile" hidden>
       <img id="headerAvatar" class="avatar" alt="Avatar" />
       <span id="headerName" class="user-name"></span>
-      <button id="changeAvatarBtn" class="icon-btn" title="Cambiar avatar">✏️</button>
+      <button id="changeAvatarBtn" type="button" class="icon-btn" title="Cambiar avatar">✏️</button>
     </div>
-    <button id="loginBtn" class="btn btn-primary">Entrar</button>
+    <button id="loginBtn" type="button" class="btn btn-primary">Entrar</button>
   </header>
 
-  <!-- Layout principal (Optimizado para PC) -->
   <main class="main-grid">
-
-    <!-- Panel de Votaciones -->
     <section class="panel">
       <div class="panel-header">
         <h2>🗳️ Votaciones de la Oficina</h2>
-        <button id="newPollBtn" class="btn btn-accent">+ Nueva votación</button>
+        <button id="newPollBtn" type="button" class="btn btn-accent">+ Nueva votación</button>
       </div>
       <div id="pollsContainer" class="polls-container">
         <p class="empty-state">Aún no hay votaciones. ¡Crea la primera! 🚀</p>
       </div>
     </section>
 
-    <!-- Panel de Chat -->
     <section class="panel chat-panel">
       <div class="panel-header">
         <h2>💬 Chat en vivo</h2>
         <span class="online-dot" title="Conectado"></span>
       </div>
-      <div id="chatMessages" class="chat-messages">
-        <!-- Los mensajes se renderizan aquí -->
-      </div>
+      <div id="chatMessages" class="chat-messages"></div>
       <form id="chatForm" class="chat-form">
         <input id="chatInput" type="text" placeholder="Escribe un mensaje..." autocomplete="off" maxlength="300" />
         <button type="submit" class="btn btn-primary">Enviar</button>
       </form>
     </section>
-
   </main>
 
-  <!-- MODAL: Login / Elegir avatar -->
+  <!-- MODAL: Login -->
   <div id="loginModal" class="modal-overlay" hidden>
     <div class="modal">
       <h2>👋 ¡Bienvenido/a!</h2>
       <p>Elige tu nombre y un avatar para entrar a la sala de la oficina.</p>
-
       <label class="field-label">Tu nombre</label>
       <input id="nameInput" type="text" placeholder="Ej: Ana, Carlos..." maxlength="20" class="text-input" />
-
       <label class="field-label">Elige tu avatar</label>
-      <div id="avatarGrid" class="avatar-grid">
-        <!-- Se generan dinámicamente -->
-      </div>
-
-      <button id="enterBtn" class="btn btn-primary btn-block">Entrar a la oficina</button>
+      <div id="avatarGrid" class="avatar-grid"></div>
+      <button id="enterBtn" type="button" class="btn btn-primary btn-block">Entrar a la oficina</button>
     </div>
   </div>
 
-  <!-- MODAL: Crear votación (Exactamente como en tu captura) -->
+  <!-- MODAL: Crear votación -->
   <div id="pollModal" class="modal-overlay" hidden>
     <div class="modal">
       <h2>✨ Nueva votación</h2>
@@ -88,13 +74,11 @@
         <input type="text" class="text-input poll-option" placeholder="Opción 1" maxlength="60" />
         <input type="text" class="text-input poll-option" placeholder="Opción 2" maxlength="60" />
       </div>
-      <button id="addOptionBtn" class="btn btn-ghost">+ Añadir opción</button>
-
-      <button id="createPollBtn" class="btn btn-primary btn-block">Crear votación</button>
+      <button id="addOptionBtn" type="button" class="btn btn-ghost">+ Añadir opción</button>
+      <button id="createPollBtn" type="button" class="btn btn-primary btn-block">Crear votación</button>
     </div>
   </div>
 
-  <!-- Firebase y Confetti -->
   <script type="module" src="app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 </body>
