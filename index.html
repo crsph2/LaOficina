@@ -69,12 +69,21 @@
       <label class="field-label">Pregunta</label>
       <input id="pollQuestion" type="text" placeholder="Ej: ¿Prendemos el aire?" maxlength="120" class="text-input" />
 
-      <label class="field-label">Opciones (mínimo 2)</label>
-      <div id="pollOptionsContainer">
-        <input type="text" class="text-input poll-option" placeholder="Opción 1" maxlength="60" />
-        <input type="text" class="text-input poll-option" placeholder="Opción 2" maxlength="60" />
+      <!-- NUEVO: Checkbox para modo Sí/No -->
+      <label class="checkbox-label">
+        <input type="checkbox" id="isYesNoPoll" />
+        <span>Modo Sí/No (Mascota animada)</span>
+      </label>
+
+      <div id="pollOptionsWrapper">
+        <label class="field-label">Opciones (mínimo 2)</label>
+        <div id="pollOptionsContainer">
+          <input type="text" class="text-input poll-option" placeholder="Opción 1" maxlength="60" />
+          <input type="text" class="text-input poll-option" placeholder="Opción 2" maxlength="60" />
+        </div>
+        <button id="addOptionBtn" type="button" class="btn btn-ghost">+ Añadir opción</button>
       </div>
-      <button id="addOptionBtn" type="button" class="btn btn-ghost">+ Añadir opción</button>
+
       <button id="createPollBtn" type="button" class="btn btn-primary btn-block">Crear votación</button>
     </div>
   </div>
