@@ -13,7 +13,7 @@ import {
   increment,
   deleteDoc,
   setDoc,
-  getDoc
+  getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -61,6 +61,9 @@ const chatInput = document.getElementById("chatInput");
 const officeCanvas = document.getElementById("officeCanvas");
 const canvasContainer = document.getElementById("canvasContainer");
 const pauseToast = document.getElementById("pauseToast");
+const pauseToastText = document.getElementById("pauseToastText");
+const closePauseBtn = document.getElementById("closePauseBtn");
+const suggestPauseBtn = document.getElementById("suggestPauseBtn");
 
 // Utilidades
 function avatarUrl(style, seed) {
@@ -127,18 +130,19 @@ enterBtn.addEventListener("click", enterApp);
 nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") enterApp(); });
 
 // ============================================================
-//  OFICINA VIRTUAL, COMBATE Y MOVIMIENTO
+//  OFICINA VIRTUAL, COMBATE Y MOVIMIENTO (TÁCTIL Y TECLADO)
 // ============================================================
 const ctx = officeCanvas.getContext("2d");
 let players = {}; 
 let myPosition = { x: 400, y: 200 }; 
+let targetPosition = null; // Para el movimiento táctil
 const PLAYER_SIZE = 32;
 const MOVE_SPEED = 2.5;
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 const positionsCollection = collection(db, "positions");
 
 let lastAttackTime = 0;
-let punchEffect = null; // Para dibujar el efecto del golpe
+let punchEffect = null; 
 
 const avatarImageCache = {};
 function getAvatarImage(url) {
@@ -154,11 +158,11 @@ function initOffice() {
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
 
+  // Escuchar posiciones
   onSnapshot(positionsCollection, (snapshot) => {
+    players = {}; // Limpiamos y volvemos a llenar para evitar fantasmas
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      
-      // Si el documento es mío, actualizo mi estado local (vida y muteo)
       if (docSnap.id === currentUser.name) {
         if (data.hp !== undefined) currentUser.hp = data.hp;
         if (data.mutedUntil !== undefined) currentUser.mutedUntil = data.mutedUntil;
@@ -170,12 +174,26 @@ function initOffice() {
 
   savePosition();
 
+  // Heartbeat: Guardar posición cada 2 segundos para mantener la conexión viva
+  setInterval(() => {
+    if (currentUser.name) savePosition();
+  }, 2000);
+
+  // Limpiar al salir de la página
+  window.addEventListener('beforeunload', () => {
+    if (currentUser.name) {
+      deleteDoc(doc(positionsCollection, currentUser.name));
+    }
+  });
+
+  // Controles Teclado
   officeCanvas.addEventListener("keydown", (e) => {
     if (keys.hasOwnProperty(e.key)) {
       keys[e.key] = true;
+      targetPosition = null; // Cancelar movimiento táctil si usan teclado
       e.preventDefault(); 
     }
-    if (e.key === " ") { // Barra espaciadora para golpear
+    if (e.key === " ") { 
       e.preventDefault();
       attack();
     }
@@ -186,39 +204,77 @@ function initOffice() {
       e.preventDefault();
     }
   });
-  officeCanvas.addEventListener("click", () => officeCanvas.focus());
-  officeCanvas.focus();
+
+  // Controles Táctiles / Clic (Pointer Events)
+  officeCanvas.addEventListener("pointerdown", (e) => {
+    officeCanvas.focus(); // Para que el teclado siga funcionando
+    const rect = officeCanvas.getBoundingClientRect();
+    const scaleX = officeCanvas.width / rect.width;
+    const scaleY = officeCanvas.height / rect.height;
+    
+    let clickX = (e.clientX - rect.left) * scaleX;
+    let clickY = (e.clientY - rect.top) * scaleY;
+    
+    targetPosition = { 
+      x: clickX - PLAYER_SIZE / 2, 
+      y: clickY - PLAYER_SIZE / 2 
+    };
+  });
 
   requestAnimationFrame(gameLoop);
 
-  // Temporizador Pausa Activa (2 horas = 7,200,000 ms)
-  // Para probar rápido, cámbialo a 10000 (10 segundos)
+  // Pausa Activa automática (2 horas)
   setInterval(() => {
-    pauseToast.hidden = false;
-    // Opcional: sonido
+    showPauseToast("¡Hora de levantarse! Estira y toma agua.");
   }, 7200000);
 }
 
+// Sistema de Pausa Sugerida
+suggestPauseBtn.addEventListener("click", async () => {
+  if (!currentUser.name) return;
+  try {
+    await addDoc(collection(db, "pauses"), {
+      creator: currentUser.name,
+      createdAt: serverTimestamp()
+    });
+  } catch (e) {
+    console.error(e);
+  }
+});
+
+// Escuchar sugerencias de pausa en tiempo real
+onSnapshot(query(collection(db, "pauses"), orderBy("createdAt", "desc"), limit(1)), (snapshot) => {
+  if (!snapshot.empty) {
+    const data = snapshot.docs[0].data();
+    // Solo mostrar si fue creado en los últimos 5 segundos para no saltar al cargar
+    if (data.createdAt && Date.now() - data.createdAt.toMillis() < 5000) {
+      showPauseToast(`¡${data.creator} sugiere una pausa activa!`);
+    }
+  }
+});
+
+function showPauseToast(msg) {
+  pauseToastText.textContent = msg;
+  pauseToast.hidden = false;
+}
+
+closePauseBtn.addEventListener("click", () => {
+  pauseToast.hidden = true;
+});
+
 function attack() {
   const now = Date.now();
-  // Cooldown de 800ms
   if (now - lastAttackTime < 800) return;
-  // Si estoy muteado, no puedo atacar
-  if (currentUser.mutedUntil > now) {
-    alert("Estás muteado por K.O. No puedes golpear.");
-    return;
-  }
+  if (currentUser.mutedUntil > now) return; // Muteado
 
   lastAttackTime = now;
   punchEffect = { x: myPosition.x, y: myPosition.y, time: now };
 
-  // Buscar víctima cercana
   let closestPlayer = null;
-  let minDistance = 60; // Rango de golpe
+  let minDistance = 60;
 
   Object.keys(players).forEach(id => {
     const p = players[id];
-    // Distancia euclidiana entre centros
     const dx = (p.x + PLAYER_SIZE/2) - (myPosition.x + PLAYER_SIZE/2);
     const dy = (p.y + PLAYER_SIZE/2) - (myPosition.y + PLAYER_SIZE/2);
     const dist = Math.sqrt(dx*dx + dy*dy);
@@ -232,11 +288,10 @@ function attack() {
   if (closestPlayer) {
     const targetData = players[closestPlayer];
     let targetHp = targetData.hp !== undefined ? targetData.hp : 100;
-    let newHp = targetHp - 25; // 25 de daño por golpe
+    let newHp = targetHp - 25;
     let newMutedUntil = targetData.mutedUntil || 0;
 
     if (newHp <= 0) {
-      // K.O. -> Muteo por 1 minuto y revivir
       newHp = 100;
       newMutedUntil = now + 60000; 
     }
@@ -259,10 +314,30 @@ function gameLoop() {
 
 function update() {
   let moved = false;
+
+  // Movimiento por teclado
   if (keys.ArrowUp) { myPosition.y -= MOVE_SPEED; moved = true; }
   if (keys.ArrowDown) { myPosition.y += MOVE_SPEED; moved = true; }
   if (keys.ArrowLeft) { myPosition.x -= MOVE_SPEED; moved = true; }
   if (keys.ArrowRight) { myPosition.x += MOVE_SPEED; moved = true; }
+
+  // Movimiento por clic/táctil
+  if (targetPosition) {
+    const dx = targetPosition.x - myPosition.x;
+    const dy = targetPosition.y - myPosition.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    if (dist > MOVE_SPEED) {
+      myPosition.x += (dx / dist) * MOVE_SPEED;
+      myPosition.y += (dy / dist) * MOVE_SPEED;
+      moved = true;
+    } else {
+      myPosition.x = targetPosition.x;
+      myPosition.y = targetPosition.y;
+      targetPosition = null;
+      moved = true;
+    }
+  }
 
   myPosition.x = Math.max(0, Math.min(officeCanvas.width - PLAYER_SIZE, myPosition.x));
   myPosition.y = Math.max(0, Math.min(officeCanvas.height - PLAYER_SIZE, myPosition.y));
@@ -309,7 +384,6 @@ function triggerBubble(text) {
 function draw() {
   ctx.clearRect(0, 0, officeCanvas.width, officeCanvas.height);
 
-  // Fondo
   ctx.fillStyle = "#1e293b";
   ctx.fillRect(0, 0, officeCanvas.width, officeCanvas.height);
   ctx.strokeStyle = "#0f172a";
@@ -321,15 +395,15 @@ function draw() {
     ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(officeCanvas.width, i); ctx.stroke();
   }
 
-  // Dibujar otros jugadores
+  // Dibujar otros jugadores SOLO si están conectados (lastUpdate < 6 segs)
   Object.values(players).forEach((p) => {
-    drawPlayer(p.x, p.y, p.avatar, p.name, p.bubbleText, p.bubbleTime, p.hp, p.mutedUntil);
+    if (p.lastUpdate && (Date.now() - p.lastUpdate.toMillis() < 6000)) {
+      drawPlayer(p.x, p.y, p.avatar, p.name, p.bubbleText, p.bubbleTime, p.hp, p.mutedUntil);
+    }
   });
 
-  // Dibujar mi jugador
   drawPlayer(myPosition.x, myPosition.y, currentUser.avatar, currentUser.name, myCurrentBubble, myBubbleTime, currentUser.hp, currentUser.mutedUntil);
 
-  // Dibujar efecto de golpe
   if (punchEffect && Date.now() - punchEffect.time < 200) {
     ctx.fillStyle = "rgba(255, 50, 50, 0.8)";
     ctx.beginPath();
@@ -342,7 +416,6 @@ function draw() {
 }
 
 function drawPlayer(x, y, avatarUrl, name, bubbleText, bubbleTime, hp = 100, mutedUntil = 0) {
-  // Dibujar avatar
   const img = getAvatarImage(avatarUrl);
   if (img.complete) {
     ctx.drawImage(img, x, y, PLAYER_SIZE, PLAYER_SIZE);
@@ -351,16 +424,11 @@ function drawPlayer(x, y, avatarUrl, name, bubbleText, bubbleTime, hp = 100, mut
     ctx.fillRect(x, y, PLAYER_SIZE, PLAYER_SIZE);
   }
 
-  // Barra de Vida (HP)
-  const hpBarWidth = PLAYER_SIZE;
-  const hpBarHeight = 5;
-  const hpBarY = y - 12;
-  // Fondo barra
+  // Barra HP
   ctx.fillStyle = "#000";
-  ctx.fillRect(x, hpBarY, hpBarWidth, hpBarHeight);
-  // Relleno barra (verde si > 50, amarillo si > 20, rojo)
+  ctx.fillRect(x, y - 12, PLAYER_SIZE, 5);
   ctx.fillStyle = hp > 50 ? "#34d399" : (hp > 20 ? "#fbbf24" : "#f87171");
-  ctx.fillRect(x, hpBarY, (hp / 100) * hpBarWidth, hpBarHeight);
+  ctx.fillRect(x, y - 12, (hp / 100) * PLAYER_SIZE, 5);
 
   // Nombre
   ctx.fillStyle = "#fff";
@@ -368,13 +436,12 @@ function drawPlayer(x, y, avatarUrl, name, bubbleText, bubbleTime, hp = 100, mut
   ctx.textAlign = "center";
   ctx.fillText(name, x + PLAYER_SIZE / 2, y - 18);
 
-  // Indicador de Muteado
+  // Mute
   if (mutedUntil > Date.now()) {
     ctx.font = "14px Arial";
     ctx.fillText("🤐", x + PLAYER_SIZE / 2, y - 25);
   }
 
-  // Viñeta de chat
   if (bubbleText && bubbleText.trim() !== "") {
     const timeElapsed = Date.now() - bubbleTime;
     if (timeElapsed < 5000) {
@@ -458,7 +525,6 @@ function initChat() {
 chatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   
-  // Verificar si está muteado
   if (currentUser.mutedUntil > Date.now()) {
     const secondsLeft = Math.ceil((currentUser.mutedUntil - Date.now()) / 1000);
     alert(`Estás muteado por K.O. Espera ${secondsLeft} segundos.`);
@@ -479,7 +545,7 @@ chatForm.addEventListener("submit", async (e) => {
 });
 
 // ============================================================
-//  VOTACIONES (Se mantiene igual)
+//  VOTACIONES
 // ============================================================
 function initPolls() {
   const q = query(collection(db, "polls"), orderBy("createdAt", "desc"));
