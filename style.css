@@ -52,12 +52,37 @@ body {
 .toast-content p { font-size: 0.95rem; color: var(--text); }
 .toast-close { position: absolute; top: 8px; right: 12px; background: none; border: none; color: var(--text-dim); font-size: 1.5rem; cursor: pointer; }
 
+/* TOPBAR */
 .topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 32px; backdrop-filter: blur(12px); background: rgba(15, 23, 42, 0.6); border-bottom: 1px solid var(--border); z-index: 10; flex-shrink: 0; }
 .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.4rem; }
 .logo-text span { color: var(--accent); }
+
+/* Contenedor derecho de la topbar */
+.topbar-right { display: flex; align-items: center; gap: 15px; }
+
 .user-profile { display: flex; align-items: center; gap: 12px; }
 .avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--primary); object-fit: cover; image-rendering: pixelated; }
 .user-name { font-weight: 600; font-size: 1rem; }
+
+/* --- BOTÓN ALMUERZOS --- */
+.btn-almuerzos {
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
+  color: #fff;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+.btn-almuerzos:hover {
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
+  transform: translateY(-2px);
+}
 
 /* OFICINA VIRTUAL */
 .office-section { padding: 12px 32px 0 32px; display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
@@ -68,7 +93,7 @@ body {
 .btn-small { padding: 6px 12px; font-size: 0.85rem; border-radius: 8px; }
 
 .canvas-container { width: 100%; max-width: 1600px; height: 32vh; min-height: 200px; max-height: 350px; background: #0a0f1a; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); position: relative; }
-#officeCanvas { display: block; width: 100%; height: 100%; outline: none; image-rendering: pixelated; touch-action: none; /* Evita scroll al tocar el mapa */ }
+#officeCanvas { display: block; width: 100%; height: 100%; outline: none; image-rendering: pixelated; touch-action: none; }
 #officeCanvas:focus { box-shadow: inset 0 0 0 2px var(--primary); }
 
 /* PANELES */
@@ -164,6 +189,11 @@ body {
 @media (max-width: 768px) {
   body { height: auto; overflow: auto; }
   .topbar { flex-direction: column; padding: 10px; gap: 10px; }
+  
+  /* Ajuste para que los botones no se rompan en celular */
+  .topbar-right { flex-direction: column; width: 100%; gap: 10px; }
+  .btn-almuerzos { width: 100%; }
+  
   .main-grid { grid-template-columns: 1fr; height: auto; overflow: visible; padding: 10px; gap: 15px; }
   .panel { height: 60vh; min-height: 350px; }
   .office-section { padding: 10px; }
