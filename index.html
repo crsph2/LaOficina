@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Office Live · Vota, Chatea y Pelea</title>
   <link rel="stylesheet" href="style.css" />
+  
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 </head>
@@ -28,7 +35,6 @@
       <span class="logo-text">Office<span>Live</span></span>
     </div>
     
-    <!-- NUEVO CONTENEDOR PARA AGRUPAR LOS BOTONES DE LA DERECHA -->
     <div class="topbar-right">
       <a href="https://crsph2.github.io/casino/" target="_blank" rel="noopener noreferrer" class="btn btn-almuerzos">🍽️ Almuerzos</a>
       
@@ -51,6 +57,53 @@
     </div>
     <div class="canvas-container" id="canvasContainer">
       <canvas id="officeCanvas" tabindex="0"></canvas>
+    </div>
+  </section>
+
+  <!-- NUEVA SECCIÓN DE HERRAMIENTAS -->
+  <section class="tools-section">
+    <div class="tools-grid">
+      
+      <!-- Contadores -->
+      <div class="panel tool-panel">
+        <h2>⏳ Cuenta Regresiva</h2>
+        <div class="countdown-box">
+          <div class="countdown-item">
+            <span class="cd-title">Viernes 29 de Enero</span>
+            <span class="cd-time" id="cd-jan29">Calculando...</span>
+          </div>
+          <div class="countdown-item">
+            <span class="cd-title" id="cd-holiday-name">Próximo Feriado</span>
+            <span class="cd-time" id="cd-holiday">Calculando...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cumpleaños -->
+      <div class="panel tool-panel">
+        <h2>🎂 Cumpleaños</h2>
+        <form id="bdayForm" class="inline-form">
+          <input type="text" id="bdayName" placeholder="Nombre" maxlength="20" required class="text-input" />
+          <input type="date" id="bdayDate" required class="text-input" />
+          <button type="submit" class="btn btn-primary btn-small">+</button>
+        </form>
+        <ul id="bdayList" class="tool-list">
+          <!-- Se llena con JS -->
+        </ul>
+      </div>
+
+      <!-- Agua -->
+      <div class="panel tool-panel">
+        <h2>💧 Último en comprar agua</h2>
+        <form id="waterForm" class="inline-form">
+          <input type="text" id="waterName" placeholder="¿Quién compró?" maxlength="20" required class="text-input" />
+          <button type="submit" class="btn btn-primary btn-small">Registrar</button>
+        </form>
+        <div id="waterLog" class="water-log-display">
+          <!-- Se llena con JS -->
+        </div>
+      </div>
+
     </div>
   </section>
 
@@ -84,7 +137,7 @@
       <p>Elige tu nombre y un avatar para entrar a la oficina.</p>
       <label class="field-label">Tu nombre</label>
       <input id="nameInput" type="text" placeholder="Ej: Ana, Carlos..." maxlength="20" class="text-input" />
-      <label class="field-label">Elige tu avatar (Estilo Pixel Art)</label>
+      <label class="field-label">Elige tu avatar</label>
       <div id="avatarGrid" class="avatar-grid"></div>
       <button id="enterBtn" type="button" class="btn btn-primary btn-block">Entrar a la oficina</button>
     </div>
