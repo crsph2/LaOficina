@@ -29,6 +29,7 @@
     <button id="closePauseBtn" class="toast-close">×</button>
   </div>
 
+  <!-- TOPBAR (Fija arriba) -->
   <header class="topbar">
     <div class="logo">
       <span class="logo-icon">🏢</span>
@@ -47,6 +48,7 @@
     </div>
   </header>
 
+  <!-- OFICINA VIRTUAL (Fija arriba) -->
   <section class="office-section">
     <div class="office-header">
       <h2>🗺️ Oficina Virtual</h2>
@@ -60,77 +62,97 @@
     </div>
   </section>
 
-  <!-- NUEVA SECCIÓN DE HERRAMIENTAS -->
-  <section class="tools-section">
-    <div class="tools-grid">
-      
-      <!-- Contadores -->
-      <div class="panel tool-panel">
-        <h2>⏳ Cuenta Regresiva</h2>
-        <div class="countdown-box">
-          <div class="countdown-item">
-            <span class="cd-title">Viernes 29 de Enero</span>
-            <span class="cd-time" id="cd-jan29">Calculando...</span>
-          </div>
-          <div class="countdown-item">
-            <span class="cd-title" id="cd-holiday-name">Próximo Feriado</span>
-            <span class="cd-time" id="cd-holiday">Calculando...</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Cumpleaños -->
-      <div class="panel tool-panel">
-        <h2>🎂 Cumpleaños</h2>
-        <form id="bdayForm" class="inline-form">
-          <input type="text" id="bdayName" placeholder="Nombre" maxlength="20" required class="text-input" />
-          <input type="text" id="bdayDate" placeholder="DD/MM" maxlength="5" required class="text-input" />
-          <button type="submit" class="btn btn-primary btn-small">+</button>
-        </form>
-        <ul id="bdayList" class="tool-list">
-          <!-- Se llena con JS -->
-        </ul>
-      </div>
-
-      <!-- Agua -->
-      <div class="panel tool-panel">
-        <h2>💧 Último en comprar agua</h2>
-        <form id="waterForm" class="inline-form">
-          <input type="text" id="waterName" placeholder="¿Quién compró?" maxlength="20" required class="text-input" />
-          <button type="submit" class="btn btn-primary btn-small">Registrar</button>
-        </form>
-        <div id="waterLog" class="water-log-display">
-          <!-- Se llena con JS -->
-        </div>
-      </div>
-
+  <!-- ÁREA ESCROLEABLE INFERIOR -->
+  <div class="bottom-area">
+    
+    <!-- Pestañas -->
+    <div class="tabs-header">
+      <button class="tab-btn active" data-tab="tools">🛠️ Herramientas</button>
+      <button class="tab-btn" data-tab="polls">🗳️ Votaciones</button>
     </div>
-  </section>
 
-  <main class="main-grid">
-    <section class="panel">
-      <div class="panel-header">
-        <h2>🗳️ Votaciones</h2>
-        <button id="newPollBtn" type="button" class="btn btn-accent">+ Nueva votación</button>
-      </div>
-      <div id="pollsContainer" class="polls-container">
-        <p class="empty-state">Aún no hay votaciones. ¡Crea la primera! 🚀</p>
-      </div>
-    </section>
+    <!-- Contenido: Herramientas -->
+    <div class="tab-content active" id="tab-tools">
+      <div class="tools-grid">
+        
+        <!-- Contadores -->
+        <div class="panel tool-panel">
+          <h2>⏳ Cuenta Regresiva</h2>
+          <div class="countdown-box">
+            <div class="countdown-item">
+              <span class="cd-title">Viernes 29 de Enero</span>
+              <span class="cd-time" id="cd-jan29">Calculando...</span>
+            </div>
+            <div class="countdown-item">
+              <span class="cd-title" id="cd-holiday-name">Próximo Feriado</span>
+              <span class="cd-time" id="cd-holiday">Calculando...</span>
+            </div>
+          </div>
+        </div>
 
-    <section class="panel chat-panel">
-      <div class="panel-header">
-        <h2>💬 Chat en vivo</h2>
+        <!-- Cumpleaños -->
+        <div class="panel tool-panel">
+          <h2>🎂 Cumpleaños</h2>
+          <form id="bdayForm" class="inline-form">
+            <input type="text" id="bdayName" placeholder="Nombre" maxlength="20" required class="text-input" />
+            <input type="text" id="bdayDate" placeholder="DD/MM" maxlength="5" required class="text-input" />
+            <button type="submit" class="btn btn-primary btn-small">+</button>
+          </form>
+          <ul id="bdayList" class="tool-list">
+            <!-- Se llena con JS -->
+          </ul>
+        </div>
+
+        <!-- Agua -->
+        <div class="panel tool-panel">
+          <h2>💧 Último en comprar agua</h2>
+          <form id="waterForm" class="inline-form" style="flex-wrap: wrap;">
+            <input type="text" id="waterName" placeholder="¿Quién compró?" maxlength="20" required class="text-input" style="flex: 1 1 100px;" />
+            <input type="date" id="waterDate" required class="text-input" style="flex: 1 1 130px;" />
+            <button type="submit" class="btn btn-primary btn-small">Registrar</button>
+          </form>
+          <div id="waterLog" class="water-log-display">
+            <!-- Se llena con JS -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Contenido: Votaciones -->
+    <div class="tab-content" id="tab-polls">
+      <div class="panel polls-panel">
+        <div class="panel-header">
+          <h2>Votaciones activas</h2>
+          <button id="newPollBtn" type="button" class="btn btn-accent">+ Nueva votación</button>
+        </div>
+        <div id="pollsContainer" class="polls-container">
+          <p class="empty-state">Aún no hay votaciones. ¡Crea la primera! 🚀</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- WIDGET DE CHAT FLOTANTE -->
+  <div id="chatWidget" class="chat-widget minimized">
+    <div class="chat-header" id="chatHeader">
+      <div class="chat-title">
         <span class="online-dot" title="Conectado"></span>
+        <span>Chat de Oficina</span>
       </div>
+      <button id="toggleChatBtn" class="chat-toggle-btn">▲</button>
+    </div>
+    <div class="chat-body">
       <div id="chatMessages" class="chat-messages"></div>
       <form id="chatForm" class="chat-form">
         <input id="chatInput" type="text" placeholder="Escribe un mensaje..." autocomplete="off" maxlength="300" />
         <button type="submit" class="btn btn-primary">Enviar</button>
       </form>
-    </section>
-  </main>
+    </div>
+  </div>
 
+  <!-- MODALES -->
   <div id="loginModal" class="modal-overlay" hidden>
     <div class="modal">
       <h2>👋 ¡Bienvenido/a!</h2>
