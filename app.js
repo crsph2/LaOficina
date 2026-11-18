@@ -33,8 +33,10 @@ const db = initializeFirestore(app, {
 });
 
 let currentUser = { name: "", avatar: "", hp: 100, mutedUntil: 0 };
-const AVATAR_STYLES = ["pixel-art", "pixel-art-neutral"]; 
-const AVATAR_SEEDS = ["Felix", "Aneka", "Milo", "Luna", "Leo", "Nina", "Oscar", "Zoe", "Max", "Chloe"];
+
+// MÁS ESTILOS Y SEEDS PARA VARIEDAD DE AVATARES
+const AVATAR_STYLES = ["pixel-art", "pixel-art-neutral", "bottts", "adventurer", "micah", "avataaars"]; 
+const AVATAR_SEEDS = ["Felix", "Aneka", "Milo", "Luna", "Leo", "Nina", "Oscar", "Zoe", "Max", "Chloe", "Cristopher", "Esteban", "Carla", "Javi", "Elias", "Lornis"];
 
 // DOM
 const loginBtn = document.getElementById("loginBtn");
@@ -65,6 +67,15 @@ const pauseToastText = document.getElementById("pauseToastText");
 const closePauseBtn = document.getElementById("closePauseBtn");
 const suggestPauseBtn = document.getElementById("suggestPauseBtn");
 
+// DOM NUEVAS FUNCIONES
+const bdayForm = document.getElementById("bdayForm");
+const bdayName = document.getElementById("bdayName");
+const bdayDate = document.getElementById("bdayDate");
+const bdayList = document.getElementById("bdayList");
+const waterForm = document.getElementById("waterForm");
+const waterName = document.getElementById("waterName");
+const waterLog = document.getElementById("waterLog");
+
 // Utilidades
 function avatarUrl(style, seed) {
   return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=transparent`;
@@ -90,6 +101,7 @@ function buildAvatarPicker() {
       const img = document.createElement("img");
       img.src = url;
       img.className = "avatar-option";
+      img.loading = "lazy";
       img.addEventListener("click", () => {
         document.querySelectorAll(".avatar-option").forEach((el) => el.classList.remove("selected"));
         img.classList.add("selected");
@@ -130,12 +142,171 @@ enterBtn.addEventListener("click", enterApp);
 nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") enterApp(); });
 
 // ============================================================
-//  OFICINA VIRTUAL, COMBATE Y MOVIMIENTO (TÁCTIL Y TECLADO)
+//  NUEVAS FUNCIONES: CONTADORES, CUMPLEAÑOS Y AGUA
 // ============================================================
+
+// --- CONTADORES ---
+function updateCountdowns() {
+  const now = new Date();
+  
+  // 1. Próximo Viernes 29 de Enero
+  let targetYear = now.getFullYear();
+  let jan29 = new Date(targetYear, 0, 29);
+  while (jan29 < now || jan29.getDay() !== 5) {
+    targetYear++;
+    jan29 = new Date(targetYear, 0, 29);
+  }
+  const diffJan29 = jan29 - now;
+  const daysJan29 = Math.floor(diffJan29 / (1000 * 60 * 60 * 24));
+  document.getElementById("cd-jan29").innerText = `${daysJan29} días`;
+
+  // 2. Próximo Feriado (Lista básica de Chile, ajustable)
+  const year = now.getFullYear();
+  const holidays = [
+    { name: "Año Nuevo", date: `${year}-01-01` },
+    { name: "Viernes Santo", date: `${year}-03-29` }, // Aproximado
+    { name: "Día del Trabajo", date: `${year}-05-01` },
+    { name: "Día de las Glorias Navales", date: `${year}-05-21` },
+    { name: "Día Nacional de los Pueblos Indígenas", date: `${year}-06-20` },
+    { name: "San Pedro y San Pablo", date: `${year}-06-29` },
+    { name: "Día de la Independencia", date: `${year}-09-18` },
+    { name: "Día de las Glorias del Ejército", date: `${year}-09-19` },
+    { name: "Encuentro de Dos Mundos", date: `${year}-10-12` },
+    { name: "Día de las Iglesias Evangélicas", date: `${year}-10-31` },
+    { name: "Todos los Santos", date: `${year}-11-01` },
+    { name: "Inmaculada Concepción", date: `${year}-12-08` },
+    { name: "Navidad", date: `${year}-12-25` }
+  ];
+
+  let nextHoliday = null;
+  for (let h of holidays) {
+    let hDate = new Date(h.date + 'T00:00:00');
+    if (hDate > now) {
+      nextHoliday = { name: h.name, date: hDate };
+      break;
+    }
+  }
+  
+  // Si ya pasaron todos los de este año, tomamos el Año Nuevo del próximo
+  if (!nextHoliday) {
+    nextHoliday = { name: "Año Nuevo", date: new Date(year + 1, 0, 1) };
+  }
+
+  const diffHoliday = nextHoliday.date - now;
+  const daysHoliday = Math.ceil(diffHoliday / (1000 * 60 * 60 * 24));
+  document.getElementById("cd-holiday-name").innerText = nextHoliday.name;
+  document.getElementById("cd-holiday").innerText = `${daysHoliday} días`;
+}
+setInterval(updateCountdowns, 60000);
+updateCountdowns();
+
+// --- CUMPLEAÑOS (FIRESTORE) ---
+const bdayCollection = collection(db, "birthdays");
+bdayForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = bdayName.value.trim();
+  const date = bdayDate.value;
+  if (!name || !date) return;
+  try {
+    await addDoc(bdayCollection, { name, date, creator: currentUser.name || "Anónimo" });
+    bdayForm.reset();
+  } catch (err) { alert("Error al guardar cumpleaños"); }
+});
+
+onSnapshot(query(bdayCollection, orderBy("date", "asc")), (snapshot) => {
+  bdayList.innerHTML = "";
+  const now = new Date();
+  const bdays = [];
+  
+  snapshot.forEach(docSnap => {
+    const data = docSnap.data();
+    const bDate = new Date(data.date + 'T00:00:00');
+    
+    // Calcular cuál es el próximo
+    let nextBday = new Date(now.getFullYear(), bDate.getMonth(), bDate.getDate());
+    if (nextBday < now) nextBday.setFullYear(now.getFullYear() + 1);
+    const daysDiff = Math.ceil((nextBday - now) / (1000 * 60 * 60 * 24));
+    
+    bdays.push({ id: docSnap.id, ...data, daysDiff, bDate });
+  });
+
+  // Ordenar por días faltantes
+  bdays.sort((a, b) => a.daysDiff - b.daysDiff);
+
+  bdays.forEach((b, index) => {
+    const li = document.createElement("li");
+    const isNext = index === 0;
+    if (isNext) li.classList.add("highlight");
+    
+    const dateStr = b.bDate.toLocaleDateString("es-ES", { month: "short", day: "numeric" });
+    const daysText = b.daysDiff === 0 ? "¡HOY!" : `en ${b.daysDiff} días`;
+
+    li.innerHTML = `
+      <span>${escapeHtml(b.name)} <small style="color:var(--text-dim)">(${dateStr})</small></span>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:0.8rem; color:var(--accent); font-weight:bold;">${daysText}</span>
+        <button class="btn-delete-small" data-id="${b.id}">×</button>
+      </div>
+    `;
+    bdayList.appendChild(li);
+  });
+
+  document.querySelectorAll(".btn-delete-small").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      if (confirm("¿Borrar este cumpleaños?")) {
+        await deleteDoc(doc(db, "birthdays", e.target.dataset.id));
+      }
+    });
+  });
+});
+
+// --- AGUA (FIRESTORE) ---
+const waterCollection = collection(db, "water_logs");
+waterForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = waterName.value.trim();
+  if (!name) return;
+  try {
+    await addDoc(waterCollection, { name, date: new Date().toLocaleDateString("es-ES") });
+    waterForm.reset();
+  } catch (err) { alert("Error al guardar registro de agua"); }
+});
+
+onSnapshot(query(waterCollection, orderBy("date", "desc"), limit(10)), (snapshot) => {
+  waterLog.innerHTML = "";
+  if (snapshot.empty) {
+    waterLog.innerHTML = `<p style="color:var(--text-dim); font-size:0.9rem; text-align:center;">Nadie ha comprado agua aún.</p>`;
+    return;
+  }
+
+  const logs = [];
+  snapshot.forEach(doc => logs.push(doc.data()));
+
+  // El primero del array (más reciente) va destacado
+  const last = logs[0];
+  const currentDiv = document.createElement("div");
+  currentDiv.className = "water-current";
+  currentDiv.innerHTML = `💧 ${escapeHtml(last.name)} <br><span style="font-size:0.75rem; font-weight:400;">el ${last.date}</span>`;
+  waterLog.appendChild(currentDiv);
+
+  // Historial
+  if (logs.length > 1) {
+    const historyDiv = document.createElement("div");
+    historyDiv.className = "water-history";
+    historyDiv.innerHTML = "Anteriores: " + logs.slice(1).map(l => `${l.name} (${l.date})`).join(" · ");
+    waterLog.appendChild(historyDiv);
+  }
+});
+
+
+// ============================================================
+//  OFICINA VIRTUAL, COMBATE Y MOVIMIENTO
+// ============================================================
+// (Mismo código que tenías)
 const ctx = officeCanvas.getContext("2d");
 let players = {}; 
 let myPosition = { x: 400, y: 200 }; 
-let targetPosition = null; // Para el movimiento táctil
+let targetPosition = null;
 const PLAYER_SIZE = 32;
 const MOVE_SPEED = 2.5;
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
@@ -158,9 +329,8 @@ function initOffice() {
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
 
-  // Escuchar posiciones
   onSnapshot(positionsCollection, (snapshot) => {
-    players = {}; // Limpiamos y volvemos a llenar para evitar fantasmas
+    players = {}; 
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
       if (docSnap.id === currentUser.name) {
@@ -174,23 +344,20 @@ function initOffice() {
 
   savePosition();
 
-  // Heartbeat: Guardar posición cada 2 segundos para mantener la conexión viva
   setInterval(() => {
     if (currentUser.name) savePosition();
   }, 2000);
 
-  // Limpiar al salir de la página
   window.addEventListener('beforeunload', () => {
     if (currentUser.name) {
       deleteDoc(doc(positionsCollection, currentUser.name));
     }
   });
 
-  // Controles Teclado
   officeCanvas.addEventListener("keydown", (e) => {
     if (keys.hasOwnProperty(e.key)) {
       keys[e.key] = true;
-      targetPosition = null; // Cancelar movimiento táctil si usan teclado
+      targetPosition = null;
       e.preventDefault(); 
     }
     if (e.key === " ") { 
@@ -205,9 +372,8 @@ function initOffice() {
     }
   });
 
-  // Controles Táctiles / Clic (Pointer Events)
   officeCanvas.addEventListener("pointerdown", (e) => {
-    officeCanvas.focus(); // Para que el teclado siga funcionando
+    officeCanvas.focus();
     const rect = officeCanvas.getBoundingClientRect();
     const scaleX = officeCanvas.width / rect.width;
     const scaleY = officeCanvas.height / rect.height;
@@ -223,13 +389,11 @@ function initOffice() {
 
   requestAnimationFrame(gameLoop);
 
-  // Pausa Activa automática (2 horas)
   setInterval(() => {
     showPauseToast("¡Hora de levantarse! Estira y toma agua.");
   }, 7200000);
 }
 
-// Sistema de Pausa Sugerida
 suggestPauseBtn.addEventListener("click", async () => {
   if (!currentUser.name) return;
   try {
@@ -237,16 +401,12 @@ suggestPauseBtn.addEventListener("click", async () => {
       creator: currentUser.name,
       createdAt: serverTimestamp()
     });
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 });
 
-// Escuchar sugerencias de pausa en tiempo real
 onSnapshot(query(collection(db, "pauses"), orderBy("createdAt", "desc"), limit(1)), (snapshot) => {
   if (!snapshot.empty) {
     const data = snapshot.docs[0].data();
-    // Solo mostrar si fue creado en los últimos 5 segundos para no saltar al cargar
     if (data.createdAt && Date.now() - data.createdAt.toMillis() < 5000) {
       showPauseToast(`¡${data.creator} sugiere una pausa activa!`);
     }
@@ -257,15 +417,12 @@ function showPauseToast(msg) {
   pauseToastText.textContent = msg;
   pauseToast.hidden = false;
 }
-
-closePauseBtn.addEventListener("click", () => {
-  pauseToast.hidden = true;
-});
+closePauseBtn.addEventListener("click", () => { pauseToast.hidden = true; });
 
 function attack() {
   const now = Date.now();
   if (now - lastAttackTime < 800) return;
-  if (currentUser.mutedUntil > now) return; // Muteado
+  if (currentUser.mutedUntil > now) return;
 
   lastAttackTime = now;
   punchEffect = { x: myPosition.x, y: myPosition.y, time: now };
@@ -314,14 +471,11 @@ function gameLoop() {
 
 function update() {
   let moved = false;
-
-  // Movimiento por teclado
   if (keys.ArrowUp) { myPosition.y -= MOVE_SPEED; moved = true; }
   if (keys.ArrowDown) { myPosition.y += MOVE_SPEED; moved = true; }
   if (keys.ArrowLeft) { myPosition.x -= MOVE_SPEED; moved = true; }
   if (keys.ArrowRight) { myPosition.x += MOVE_SPEED; moved = true; }
 
-  // Movimiento por clic/táctil
   if (targetPosition) {
     const dx = targetPosition.x - myPosition.x;
     const dy = targetPosition.y - myPosition.y;
@@ -383,7 +537,6 @@ function triggerBubble(text) {
 
 function draw() {
   ctx.clearRect(0, 0, officeCanvas.width, officeCanvas.height);
-
   ctx.fillStyle = "#1e293b";
   ctx.fillRect(0, 0, officeCanvas.width, officeCanvas.height);
   ctx.strokeStyle = "#0f172a";
@@ -395,7 +548,6 @@ function draw() {
     ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(officeCanvas.width, i); ctx.stroke();
   }
 
-  // Dibujar otros jugadores SOLO si están conectados (lastUpdate < 6 segs)
   Object.values(players).forEach((p) => {
     if (p.lastUpdate && (Date.now() - p.lastUpdate.toMillis() < 6000)) {
       drawPlayer(p.x, p.y, p.avatar, p.name, p.bubbleText, p.bubbleTime, p.hp, p.mutedUntil);
@@ -424,19 +576,16 @@ function drawPlayer(x, y, avatarUrl, name, bubbleText, bubbleTime, hp = 100, mut
     ctx.fillRect(x, y, PLAYER_SIZE, PLAYER_SIZE);
   }
 
-  // Barra HP
   ctx.fillStyle = "#000";
   ctx.fillRect(x, y - 12, PLAYER_SIZE, 5);
   ctx.fillStyle = hp > 50 ? "#34d399" : (hp > 20 ? "#fbbf24" : "#f87171");
   ctx.fillRect(x, y - 12, (hp / 100) * PLAYER_SIZE, 5);
 
-  // Nombre
   ctx.fillStyle = "#fff";
   ctx.font = "bold 10px Inter, sans-serif";
   ctx.textAlign = "center";
   ctx.fillText(name, x + PLAYER_SIZE / 2, y - 18);
 
-  // Mute
   if (mutedUntil > Date.now()) {
     ctx.font = "14px Arial";
     ctx.fillText("🤐", x + PLAYER_SIZE / 2, y - 25);
@@ -716,3 +865,10 @@ function checkSavedUser() {
   loginModal.hidden = false;
 }
 checkSavedUser();
+
+// PWA: Registrar Service Worker para que se pueda instalar
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW fallo:', err));
+  });
+}
