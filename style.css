@@ -57,32 +57,18 @@ body {
 .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.4rem; }
 .logo-text span { color: var(--accent); }
 
-/* Contenedor derecho de la topbar */
 .topbar-right { display: flex; align-items: center; gap: 15px; }
-
 .user-profile { display: flex; align-items: center; gap: 12px; }
 .avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--primary); object-fit: cover; image-rendering: pixelated; }
 .user-name { font-weight: 600; font-size: 1rem; }
 
-/* --- BOTÓN ALMUERZOS --- */
 .btn-almuerzos {
   background: linear-gradient(135deg, #f59e0b, #ea580c);
-  color: #fff;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
-  padding: 10px 20px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  border-radius: 12px;
-  transition: all 0.2s ease;
+  color: #fff; text-decoration: none; display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3); padding: 10px 20px; font-size: 0.95rem;
+  font-weight: 600; border-radius: 12px; transition: all 0.2s ease;
 }
-.btn-almuerzos:hover {
-  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
-  transform: translateY(-2px);
-}
+.btn-almuerzos:hover { box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5); transform: translateY(-2px); }
 
 /* OFICINA VIRTUAL */
 .office-section { padding: 12px 32px 0 32px; display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
@@ -95,6 +81,36 @@ body {
 .canvas-container { width: 100%; max-width: 1600px; height: 32vh; min-height: 200px; max-height: 350px; background: #0a0f1a; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); position: relative; }
 #officeCanvas { display: block; width: 100%; height: 100%; outline: none; image-rendering: pixelated; touch-action: none; }
 #officeCanvas:focus { box-shadow: inset 0 0 0 2px var(--primary); }
+
+/* NUEVA SECCIÓN: HERRAMIENTAS */
+.tools-section { padding: 10px 32px; width: 100%; max-width: 1600px; margin: 0 auto; flex-shrink: 0; }
+.tools-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.tool-panel { padding: 15px; min-height: 180px; }
+.tool-panel h2 { font-size: 1.05rem; margin-bottom: 12px; }
+
+/* Contadores */
+.countdown-box { display: flex; flex-direction: column; gap: 10px; }
+.countdown-item { background: rgba(15, 23, 42, 0.6); padding: 10px; border-radius: 10px; border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.cd-title { font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.cd-time { font-size: 1.1rem; font-weight: 800; color: var(--accent); text-shadow: 0 0 10px rgba(244, 114, 182, 0.3); }
+
+/* Formularios en línea */
+.inline-form { display: flex; gap: 8px; margin-bottom: 12px; }
+.inline-form input { padding: 8px 12px; font-size: 0.85rem; }
+.inline-form button { padding: 8px 12px; }
+
+/* Listas */
+.tool-list { list-style: none; display: flex; flex-direction: column; gap: 6px; max-height: 120px; overflow-y: auto; padding-right: 4px; }
+.tool-list li { display: flex; justify-content: space-between; align-items: center; background: rgba(99, 102, 241, 0.1); padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; }
+.tool-list li.highlight { border: 1px solid var(--success); background: rgba(52, 211, 153, 0.1); }
+.tool-list li span { font-weight: 600; }
+.btn-delete-small { background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 1rem; opacity: 0.6; transition: opacity 0.2s; }
+.btn-delete-small:hover { opacity: 1; }
+
+/* Agua */
+.water-log-display { display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; }
+.water-current { background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; padding: 10px; border-radius: 8px; text-align: center; font-weight: 700; color: #7dd3fc; }
+.water-history { font-size: 0.8rem; color: var(--text-dim); max-height: 60px; overflow-y: auto; }
 
 /* PANELES */
 .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 16px 32px 24px 32px; flex: 1; min-height: 0; max-width: 1600px; margin: 0 auto; width: 100%; overflow: hidden; }
@@ -185,20 +201,32 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 4px; }
 
-/* ---------- RESPONSIVE MÓVIL ---------- */
+/* ---------- RESPONSIVE MÓVIL MEJORADO ---------- */
+@media (max-width: 1024px) {
+  .tools-grid { grid-template-columns: 1fr 1fr; }
+  .tool-panel:last-child { grid-column: span 2; }
+}
+
 @media (max-width: 768px) {
-  body { height: auto; overflow: auto; }
-  .topbar { flex-direction: column; padding: 10px; gap: 10px; }
+  body { height: auto; overflow: auto; padding-bottom: 20px; }
+  .topbar { flex-direction: column; padding: 12px; gap: 12px; }
   
-  /* Ajuste para que los botones no se rompan en celular */
-  .topbar-right { flex-direction: column; width: 100%; gap: 10px; }
-  .btn-almuerzos { width: 100%; }
+  .topbar-right { flex-wrap: wrap; justify-content: center; width: 100%; gap: 10px; }
+  .btn-almuerzos { width: 100%; text-align: center; }
+  
+  .tools-grid { grid-template-columns: 1fr; }
+  .tool-panel:last-child { grid-column: span 1; }
   
   .main-grid { grid-template-columns: 1fr; height: auto; overflow: visible; padding: 10px; gap: 15px; }
   .panel { height: 60vh; min-height: 350px; }
   .office-section { padding: 10px; }
   .office-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .office-controls { flex-direction: column; align-items: flex-start; width: 100%; gap: 10px;}
+  .office-controls { flex-direction: column; align-items: flex-start; width: 100%; gap: 10px; }
   .canvas-container { height: 40vh; min-height: 250px; }
   .toast-notification { width: 90%; top: 10px; }
+}
+
+/* Estilos para cuando se instala como App (PWA) */
+@media (display-mode: standalone) {
+  body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
 }
