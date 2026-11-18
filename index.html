@@ -1,117 +1,75 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Office Live · Vota, Chatea y Pelea</title>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Oficina</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
+    <!-- Librerías externas -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 </head>
 <body>
-
-  <div class="aurora-bg"></div>
-
-  <!-- Notificación de Pausa Activa -->
-  <div id="pauseToast" class="toast-notification" hidden>
-    <div class="toast-icon">🧘‍♀️</div>
-    <div class="toast-content">
-      <h3>¡Hora de la Pausa Activa!</h3>
-      <p id="pauseToastText">Levanta, estira las piernas y toma agua.</p>
-    </div>
-    <button id="closePauseBtn" class="toast-close">×</button>
-  </div>
-
-  <header class="topbar">
-    <div class="logo">
-      <span class="logo-icon">🏢</span>
-      <span class="logo-text">Office<span>Live</span></span>
-    </div>
-    
-    <!-- NUEVO CONTENEDOR PARA AGRUPAR LOS BOTONES DE LA DERECHA -->
-    <div class="topbar-right">
-      <a href="https://crsph2.github.io/casino/" target="_blank" rel="noopener noreferrer" class="btn btn-almuerzos">🍽️ Almuerzos</a>
-      
-      <div class="user-profile" id="userProfile" hidden>
-        <img id="headerAvatar" class="avatar" alt="Avatar" />
-        <span id="headerName" class="user-name"></span>
-        <button id="changeAvatarBtn" type="button" class="icon-btn" title="Cambiar avatar">✏️</button>
-      </div>
-      <button id="loginBtn" type="button" class="btn btn-primary">Entrar</button>
-    </div>
-  </header>
-
-  <section class="office-section">
-    <div class="office-header">
-      <h2>🗺️ Oficina Virtual</h2>
-      <div class="office-controls">
-        <p class="office-hint">Flechas para moverte o <strong>toca el mapa</strong>. <strong>Espacio</strong> para golpear.</p>
-        <button id="suggestPauseBtn" type="button" class="btn btn-ghost btn-small" style="width: auto;">🧘‍♀️ Sugerir Pausa</button>
-      </div>
-    </div>
-    <div class="canvas-container" id="canvasContainer">
-      <canvas id="officeCanvas" tabindex="0"></canvas>
-    </div>
-  </section>
-
-  <main class="main-grid">
-    <section class="panel">
-      <div class="panel-header">
-        <h2>🗳️ Votaciones</h2>
-        <button id="newPollBtn" type="button" class="btn btn-accent">+ Nueva votación</button>
-      </div>
-      <div id="pollsContainer" class="polls-container">
-        <p class="empty-state">Aún no hay votaciones. ¡Crea la primera! 🚀</p>
-      </div>
-    </section>
-
-    <section class="panel chat-panel">
-      <div class="panel-header">
-        <h2>💬 Chat en vivo</h2>
-        <span class="online-dot" title="Conectado"></span>
-      </div>
-      <div id="chatMessages" class="chat-messages"></div>
-      <form id="chatForm" class="chat-form">
-        <input id="chatInput" type="text" placeholder="Escribe un mensaje..." autocomplete="off" maxlength="300" />
-        <button type="submit" class="btn btn-primary">Enviar</button>
-      </form>
-    </section>
-  </main>
-
-  <div id="loginModal" class="modal-overlay" hidden>
-    <div class="modal">
-      <h2>👋 ¡Bienvenido/a!</h2>
-      <p>Elige tu nombre y un avatar para entrar a la oficina.</p>
-      <label class="field-label">Tu nombre</label>
-      <input id="nameInput" type="text" placeholder="Ej: Ana, Carlos..." maxlength="20" class="text-input" />
-      <label class="field-label">Elige tu avatar (Estilo Pixel Art)</label>
-      <div id="avatarGrid" class="avatar-grid"></div>
-      <button id="enterBtn" type="button" class="btn btn-primary btn-block">Entrar a la oficina</button>
-    </div>
-  </div>
-
-  <div id="pollModal" class="modal-overlay" hidden>
-    <div class="modal">
-      <h2>✨ Nueva votación</h2>
-      <label class="field-label">Pregunta</label>
-      <input id="pollQuestion" type="text" placeholder="Ej: ¿Prendemos el aire?" maxlength="120" class="text-input" />
-      <label class="checkbox-label">
-        <input type="checkbox" id="isYesNoPoll" />
-        <span>Modo Sí/No (Mascota animada)</span>
-      </label>
-      <div id="pollOptionsWrapper">
-        <label class="field-label">Opciones (mínimo 2)</label>
-        <div id="pollOptionsContainer">
-          <input type="text" class="text-input poll-option" placeholder="Opción 1" maxlength="60" />
-          <input type="text" class="text-input poll-option" placeholder="Opción 2" maxlength="60" />
+    <header>
+        <div class="avatar-container">
+            <img id="avatar-img" src="https://via.placeholder.com/100" alt="Avatar">
+            <input type="file" id="avatar-input" accept="image/*" style="display: none;">
+            <button id="btn-edit-avatar">Editar Avatar</button>
         </div>
-        <button id="addOptionBtn" type="button" class="btn btn-ghost">+ Añadir opción</button>
-      </div>
-      <button id="createPollBtn" type="button" class="btn btn-primary btn-block">Crear votación</button>
-    </div>
-  </div>
+        <h1>Panel de la Oficina</h1>
+    </header>
 
-  <script type="module" src="app.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <main>
+        <!-- SECCIÓN CONTADORES -->
+        <section class="card">
+            <h2>Contadores</h2>
+            <div class="counters">
+                <div class="counter-item">
+                    <h3>Próximo Viernes 29 de Enero</h3>
+                    <p id="countdown-29">Calculando...</p>
+                </div>
+                <div class="counter-item">
+                    <h3>Próximo Feriado (<span id="holiday-name">...</span>)</h3>
+                    <p id="countdown-holiday">Calculando...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN CUMPLEAÑOS -->
+        <section class="card">
+            <h2>Lista de Cumpleaños</h2>
+            <p class="subtitle">Arrastra para ordenar. Haz doble clic en un nombre para editarlo.</p>
+            <ul id="birthday-list"></ul>
+            <form id="birthday-form">
+                <input type="text" id="bday-name" placeholder="Nombre" required>
+                <input type="date" id="bday-date" required>
+                <button type="submit">Agregar</button>
+            </form>
+        </section>
+
+        <!-- SECCIÓN AGUA -->
+        <section class="card">
+            <h2>Registro del Agua</h2>
+            <p id="last-water-buyer">Último en comprar: Nadie</p>
+            <form id="water-form">
+                <input type="text" id="water-name" placeholder="¿Quién compró el agua?" required>
+                <button type="submit">Registrar Compra</button>
+            </form>
+            <ul id="water-history"></ul>
+        </section>
+    </main>
+
+    <!-- Modal para recortar avatar -->
+    <div id="cropper-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <img id="image-to-crop" src="" alt="Imagen a recortar">
+            <button id="btn-save-avatar">Guardar Avatar</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
 </body>
 </html>
