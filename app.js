@@ -158,13 +158,14 @@ function updateCountdowns() {
   }
   const diffJan29 = jan29 - now;
   const daysJan29 = Math.floor(diffJan29 / (1000 * 60 * 60 * 24));
-  document.getElementById("cd-jan29").innerText = `${daysJan29} días`;
+  const elJan29 = document.getElementById("cd-jan29");
+  if (elJan29) elJan29.innerText = `${daysJan29} días`;
 
-  // 2. Próximo Feriado (Lista básica de Chile, ajustable)
+  // 2. Próximo Feriado (Lista Chile)
   const year = now.getFullYear();
   const holidays = [
     { name: "Año Nuevo", date: `${year}-01-01` },
-    { name: "Viernes Santo", date: `${year}-03-29` }, // Aproximado
+    { name: "Viernes Santo", date: `${year}-03-29` },
     { name: "Día del Trabajo", date: `${year}-05-01` },
     { name: "Día de las Glorias Navales", date: `${year}-05-21` },
     { name: "Día Nacional de los Pueblos Indígenas", date: `${year}-06-20` },
@@ -187,42 +188,70 @@ function updateCountdowns() {
     }
   }
   
-  // Si ya pasaron todos los de este año, tomamos el Año Nuevo del próximo
   if (!nextHoliday) {
     nextHoliday = { name: "Año Nuevo", date: new Date(year + 1, 0, 1) };
   }
 
   const diffHoliday = nextHoliday.date - now;
   const daysHoliday = Math.ceil(diffHoliday / (1000 * 60 * 60 * 24));
-  document.getElementById("cd-holiday-name").innerText = nextHoliday.name;
-  document.getElementById("cd-holiday").innerText = `${daysHoliday} días`;
+  const elHolName = document.getElementById("cd-holiday-name");
+  const elHolDays = document.getElementById("cd-holiday");
+  if (elHolName) elHolName.innerText = nextHoliday.name;
+  if (elHolDays) elHolDays.innerText = `${daysHoliday} días`;
 }
 setInterval(updateCountdowns, 60000);
 updateCountdowns();
 
 // --- CUMPLEAÑOS (FIRESTORE) ---
 const bdayCollection = collection(db, "birthdays");
-bdayForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const name = bdayName.value.trim();
-  const date = bdayDate.value;
-  if (!name || !date) return;
-  try {
-    await addDoc(bdayCollection, { name, date, creator: currentUser.name || "Anónimo" });
-    bdayForm.reset();
-  } catch (err) { alert("Error al guardar cumpleaños"); }
-});
+
+// Auto-formatear el input DD/MM
+if(bdayDate) {
+  bdayDate.addEventListener("input", (e) => {
+    let val = e.target.value.replace(/\D/g, ''); 
+    if (val.length > 2) {
+      val = val.substring(0, 2) + '/' + val.substring(2, 4);
+    }
+    e.target.value = val;
+  });
+}
+
+if(bdayForm) {
+  bdayForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = bdayName.value.trim();
+    const rawDate = bdayDate.value.trim(); 
+    
+    if (!name || rawDate.length !== 5) {
+      return alert("Por favor, ingresa el nombre y la fecha en formato DD/MM (ej: 24/03).");
+    }
+
+    const [day, month] = rawDate.split('/');
+    
+    if (parseInt(day) < 1 || parseInt(day) > 31 || parseInt(month) < 1 || parseInt(month) > 12) {
+      return alert("Fecha inválida. Usa un día entre 1 y 31, y un mes entre 1 y 12.");
+    }
+
+    // Guardamos usando el año 2000 como "truco"
+    const dummyDate = `2000-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+
+    try {
+      await addDoc(bdayCollection, { name, date: dummyDate, creator: currentUser.name || "Anónimo" });
+      bdayForm.reset();
+    } catch (err) { alert("Error al guardar cumpleaños"); }
+  });
+}
 
 onSnapshot(query(bdayCollection, orderBy("date", "asc")), (snapshot) => {
+  if(!bdayList) return;
   bdayList.innerHTML = "";
   const now = new Date();
   const bdays = [];
   
   snapshot.forEach(docSnap => {
     const data = docSnap.data();
-    const bDate = new Date(data.date + 'T00:00:00');
+    const bDate = new Date(data.date + 'T00:00:00'); 
     
-    // Calcular cuál es el próximo
     let nextBday = new Date(now.getFullYear(), bDate.getMonth(), bDate.getDate());
     if (nextBday < now) nextBday.setFullYear(now.getFullYear() + 1);
     const daysDiff = Math.ceil((nextBday - now) / (1000 * 60 * 60 * 24));
@@ -230,7 +259,6 @@ onSnapshot(query(bdayCollection, orderBy("date", "asc")), (snapshot) => {
     bdays.push({ id: docSnap.id, ...data, daysDiff, bDate });
   });
 
-  // Ordenar por días faltantes
   bdays.sort((a, b) => a.daysDiff - b.daysDiff);
 
   bdays.forEach((b, index) => {
@@ -262,17 +290,20 @@ onSnapshot(query(bdayCollection, orderBy("date", "asc")), (snapshot) => {
 
 // --- AGUA (FIRESTORE) ---
 const waterCollection = collection(db, "water_logs");
-waterForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const name = waterName.value.trim();
-  if (!name) return;
-  try {
-    await addDoc(waterCollection, { name, date: new Date().toLocaleDateString("es-ES") });
-    waterForm.reset();
-  } catch (err) { alert("Error al guardar registro de agua"); }
-});
+if(waterForm) {
+  waterForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = waterName.value.trim();
+    if (!name) return;
+    try {
+      await addDoc(waterCollection, { name, date: new Date().toLocaleDateString("es-ES") });
+      waterForm.reset();
+    } catch (err) { alert("Error al guardar registro de agua"); }
+  });
+}
 
 onSnapshot(query(waterCollection, orderBy("date", "desc"), limit(10)), (snapshot) => {
+  if(!waterLog) return;
   waterLog.innerHTML = "";
   if (snapshot.empty) {
     waterLog.innerHTML = `<p style="color:var(--text-dim); font-size:0.9rem; text-align:center;">Nadie ha comprado agua aún.</p>`;
@@ -282,14 +313,12 @@ onSnapshot(query(waterCollection, orderBy("date", "desc"), limit(10)), (snapshot
   const logs = [];
   snapshot.forEach(doc => logs.push(doc.data()));
 
-  // El primero del array (más reciente) va destacado
   const last = logs[0];
   const currentDiv = document.createElement("div");
   currentDiv.className = "water-current";
   currentDiv.innerHTML = `💧 ${escapeHtml(last.name)} <br><span style="font-size:0.75rem; font-weight:400;">el ${last.date}</span>`;
   waterLog.appendChild(currentDiv);
 
-  // Historial
   if (logs.length > 1) {
     const historyDiv = document.createElement("div");
     historyDiv.className = "water-history";
@@ -302,8 +331,7 @@ onSnapshot(query(waterCollection, orderBy("date", "desc"), limit(10)), (snapshot
 // ============================================================
 //  OFICINA VIRTUAL, COMBATE Y MOVIMIENTO
 // ============================================================
-// (Mismo código que tenías)
-const ctx = officeCanvas.getContext("2d");
+const ctx = officeCanvas ? officeCanvas.getContext("2d") : null;
 let players = {}; 
 let myPosition = { x: 400, y: 200 }; 
 let targetPosition = null;
@@ -326,6 +354,7 @@ function getAvatarImage(url) {
 }
 
 function initOffice() {
+  if(!officeCanvas) return;
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
 
@@ -394,15 +423,17 @@ function initOffice() {
   }, 7200000);
 }
 
-suggestPauseBtn.addEventListener("click", async () => {
-  if (!currentUser.name) return;
-  try {
-    await addDoc(collection(db, "pauses"), {
-      creator: currentUser.name,
-      createdAt: serverTimestamp()
-    });
-  } catch (e) { console.error(e); }
-});
+if(suggestPauseBtn) {
+  suggestPauseBtn.addEventListener("click", async () => {
+    if (!currentUser.name) return;
+    try {
+      await addDoc(collection(db, "pauses"), {
+        creator: currentUser.name,
+        createdAt: serverTimestamp()
+      });
+    } catch (e) { console.error(e); }
+  });
+}
 
 onSnapshot(query(collection(db, "pauses"), orderBy("createdAt", "desc"), limit(1)), (snapshot) => {
   if (!snapshot.empty) {
@@ -414,10 +445,11 @@ onSnapshot(query(collection(db, "pauses"), orderBy("createdAt", "desc"), limit(1
 });
 
 function showPauseToast(msg) {
+  if(!pauseToast || !pauseToastText) return;
   pauseToastText.textContent = msg;
   pauseToast.hidden = false;
 }
-closePauseBtn.addEventListener("click", () => { pauseToast.hidden = true; });
+if(closePauseBtn) closePauseBtn.addEventListener("click", () => { pauseToast.hidden = true; });
 
 function attack() {
   const now = Date.now();
@@ -459,6 +491,7 @@ function attack() {
 }
 
 function resizeCanvas() {
+  if(!officeCanvas || !canvasContainer) return;
   officeCanvas.width = canvasContainer.clientWidth;
   officeCanvas.height = canvasContainer.clientHeight;
 }
@@ -493,6 +526,7 @@ function update() {
     }
   }
 
+  if(!officeCanvas) return;
   myPosition.x = Math.max(0, Math.min(officeCanvas.width - PLAYER_SIZE, myPosition.x));
   myPosition.y = Math.max(0, Math.min(officeCanvas.height - PLAYER_SIZE, myPosition.y));
 
@@ -536,6 +570,7 @@ function triggerBubble(text) {
 }
 
 function draw() {
+  if(!ctx || !officeCanvas) return;
   ctx.clearRect(0, 0, officeCanvas.width, officeCanvas.height);
   ctx.fillStyle = "#1e293b";
   ctx.fillRect(0, 0, officeCanvas.width, officeCanvas.height);
@@ -568,6 +603,7 @@ function draw() {
 }
 
 function drawPlayer(x, y, avatarUrl, name, bubbleText, bubbleTime, hp = 100, mutedUntil = 0) {
+  if(!ctx) return;
   const img = getAvatarImage(avatarUrl);
   if (img.complete) {
     ctx.drawImage(img, x, y, PLAYER_SIZE, PLAYER_SIZE);
@@ -600,6 +636,7 @@ function drawPlayer(x, y, avatarUrl, name, bubbleText, bubbleTime, hp = 100, mut
 }
 
 function drawBubble(cx, cy, text, timeElapsed) {
+  if(!ctx) return;
   ctx.font = "12px Inter, sans-serif";
   let displayText = text;
   if (displayText.length > 30) displayText = displayText.substring(0, 27) + "...";
@@ -650,6 +687,7 @@ function drawBubble(cx, cy, text, timeElapsed) {
 function initChat() {
   const q = query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(100));
   onSnapshot(q, (snapshot) => {
+    if(!chatMessages) return;
     chatMessages.innerHTML = "";
     snapshot.forEach((docSnap) => {
       const msg = docSnap.data();
@@ -671,27 +709,29 @@ function initChat() {
   }, (error) => console.error("Error chat:", error));
 }
 
-chatForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  
-  if (currentUser.mutedUntil > Date.now()) {
-    const secondsLeft = Math.ceil((currentUser.mutedUntil - Date.now()) / 1000);
-    alert(`Estás muteado por K.O. Espera ${secondsLeft} segundos.`);
-    return;
-  }
+if(chatForm) {
+  chatForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    
+    if (currentUser.mutedUntil > Date.now()) {
+      const secondsLeft = Math.ceil((currentUser.mutedUntil - Date.now()) / 1000);
+      alert(`Estás muteado por K.O. Espera ${secondsLeft} segundos.`);
+      return;
+    }
 
-  const text = chatInput.value.trim();
-  if (!text) return;
-  chatInput.value = "";
-  
-  triggerBubble(text);
+    const text = chatInput.value.trim();
+    if (!text) return;
+    chatInput.value = "";
+    
+    triggerBubble(text);
 
-  try {
-    await addDoc(collection(db, "messages"), {
-      name: currentUser.name, avatar: currentUser.avatar, text, createdAt: serverTimestamp(),
-    });
-  } catch (error) { alert("Error al enviar mensaje."); }
-});
+    try {
+      await addDoc(collection(db, "messages"), {
+        name: currentUser.name, avatar: currentUser.avatar, text, createdAt: serverTimestamp(),
+      });
+    } catch (error) { alert("Error al enviar mensaje."); }
+  });
+}
 
 // ============================================================
 //  VOTACIONES
@@ -699,6 +739,7 @@ chatForm.addEventListener("submit", async (e) => {
 function initPolls() {
   const q = query(collection(db, "polls"), orderBy("createdAt", "desc"));
   onSnapshot(q, (snapshot) => {
+    if(!pollsContainer) return;
     pollsContainer.innerHTML = "";
     if (snapshot.empty) {
       pollsContainer.innerHTML = `<p class="empty-state">Aún no hay votaciones. ¡Crea la primera! 🚀</p>`;
@@ -712,6 +753,7 @@ function initPolls() {
 }
 
 function renderPoll(poll) {
+  if(!pollsContainer) return;
   const totalVotes = Object.values(poll.votes || {}).reduce((a, b) => a + b, 0);
   const card = document.createElement("div");
   card.className = "poll-card";
@@ -794,54 +836,62 @@ function renderPoll(poll) {
   pollsContainer.appendChild(card);
 }
 
-newPollBtn.addEventListener("click", () => {
-  pollQuestion.value = "";
-  isYesNoPoll.checked = false;
-  pollOptionsWrapper.style.display = "block";
-  pollOptionsContainer.innerHTML = `
-    <input type="text" class="text-input poll-option" placeholder="Opción 1" maxlength="60" />
-    <input type="text" class="text-input poll-option" placeholder="Opción 2" maxlength="60" />
-  `;
-  pollModal.hidden = false;
-});
+if(newPollBtn) {
+  newPollBtn.addEventListener("click", () => {
+    pollQuestion.value = "";
+    isYesNoPoll.checked = false;
+    pollOptionsWrapper.style.display = "block";
+    pollOptionsContainer.innerHTML = `
+      <input type="text" class="text-input poll-option" placeholder="Opción 1" maxlength="60" />
+      <input type="text" class="text-input poll-option" placeholder="Opción 2" maxlength="60" />
+    `;
+    pollModal.hidden = false;
+  });
+}
 
-isYesNoPoll.addEventListener("change", (e) => {
-  pollOptionsWrapper.style.display = e.target.checked ? "none" : "block";
-});
+if(isYesNoPoll) {
+  isYesNoPoll.addEventListener("change", (e) => {
+    pollOptionsWrapper.style.display = e.target.checked ? "none" : "block";
+  });
+}
 
-addOptionBtn.addEventListener("click", (e) => {
-  e.preventDefault();
-  const count = pollOptionsContainer.querySelectorAll(".poll-option").length;
-  if (count >= 6) return alert("Máximo 6 opciones.");
-  const input = document.createElement("input");
-  input.type = "text";
-  input.className = "text-input poll-option";
-  input.placeholder = `Opción ${count + 1}`;
-  input.maxLength = 60;
-  pollOptionsContainer.appendChild(input);
-});
+if(addOptionBtn) {
+  addOptionBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    const count = pollOptionsContainer.querySelectorAll(".poll-option").length;
+    if (count >= 6) return alert("Máximo 6 opciones.");
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "text-input poll-option";
+    input.placeholder = `Opción ${count + 1}`;
+    input.maxLength = 60;
+    pollOptionsContainer.appendChild(input);
+  });
+}
 
-createPollBtn.addEventListener("click", async (e) => {
-  e.preventDefault(); 
-  const question = pollQuestion.value.trim();
-  const isYesNo = isYesNoPoll.checked;
-  let options = [];
-  if (isYesNo) { options = ["Sí", "No"]; }
-  else {
-    const optionInputs = [...pollOptionsContainer.querySelectorAll(".poll-option")];
-    options = optionInputs.map(i => i.value.trim()).filter(Boolean);
-  }
-  if (!question) return alert("Escribe una pregunta.");
-  if (options.length < 2) return alert("Necesitas al menos 2 opciones.");
-  const votes = {};
-  options.forEach((_, i) => (votes[i] = 0));
-  try {
-    await addDoc(collection(db, "polls"), {
-      question, options, votes, isYesNo, creator: currentUser.name || "Anónimo", createdAt: serverTimestamp(),
-    });
-    pollModal.hidden = true;
-  } catch (error) { alert("Error de Firebase al crear la votación."); }
-});
+if(createPollBtn) {
+  createPollBtn.addEventListener("click", async (e) => {
+    e.preventDefault(); 
+    const question = pollQuestion.value.trim();
+    const isYesNo = isYesNoPoll.checked;
+    let options = [];
+    if (isYesNo) { options = ["Sí", "No"]; }
+    else {
+      const optionInputs = [...pollOptionsContainer.querySelectorAll(".poll-option")];
+      options = optionInputs.map(i => i.value.trim()).filter(Boolean);
+    }
+    if (!question) return alert("Escribe una pregunta.");
+    if (options.length < 2) return alert("Necesitas al menos 2 opciones.");
+    const votes = {};
+    options.forEach((_, i) => (votes[i] = 0));
+    try {
+      await addDoc(collection(db, "polls"), {
+        question, options, votes, isYesNo, creator: currentUser.name || "Anónimo", createdAt: serverTimestamp(),
+      });
+      pollModal.hidden = true;
+    } catch (error) { alert("Error de Firebase al crear la votación."); }
+  });
+}
 
 // Inicio
 function initRealtime() { initChat(); initPolls(); }
@@ -862,7 +912,7 @@ function checkSavedUser() {
     } catch (_) {}
   }
   buildAvatarPicker();
-  loginModal.hidden = false;
+  if(loginModal) loginModal.hidden = false;
 }
 checkSavedUser();
 
