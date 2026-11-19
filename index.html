@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Office Live · Vota, Chatea y Pelea</title>
+  <title>La Oficina · Vota, Chatea y Juega</title>
   <link rel="stylesheet" href="style.css" />
   
   <!-- PWA Meta Tags -->
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#0a0f0d" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
@@ -21,22 +21,23 @@
 
   <!-- Notificación de Pausa Activa -->
   <div id="pauseToast" class="toast-notification" hidden>
-    <div class="toast-icon">🧘‍♀️</div>
+    <div class="toast-icon">🎅</div>
     <div class="toast-content">
       <h3>¡Hora de la Pausa Activa!</h3>
-      <p id="pauseToastText">Levanta, estira las piernas y toma agua.</p>
+      <p id="pauseToastText">Levanta, estira las piernas y toma un chocolate caliente.</p>
     </div>
     <button id="closePauseBtn" class="toast-close">×</button>
   </div>
 
-  <!-- TOPBAR (Fija arriba) -->
+  <!-- TOPBAR -->
   <header class="topbar">
     <div class="logo">
       <span class="logo-icon">🏢</span>
-      <span class="logo-text">Office<span>Live</span></span>
+      <span class="logo-text">La <span>Oficina</span></span>
     </div>
     
     <div class="topbar-right">
+      <button id="gamesBtn" type="button" class="btn btn-games">🎮 Minijuegos</button>
       <a href="https://crsph2.github.io/casino/" target="_blank" rel="noopener noreferrer" class="btn btn-almuerzos">🍽️ Almuerzos</a>
       
       <div class="user-profile" id="userProfile" hidden>
@@ -48,13 +49,13 @@
     </div>
   </header>
 
-  <!-- OFICINA VIRTUAL (Fija arriba) -->
+  <!-- OFICINA VIRTUAL -->
   <section class="office-section">
     <div class="office-header">
       <h2>🗺️ Oficina Virtual</h2>
       <div class="office-controls">
         <p class="office-hint">Flechas para moverte o <strong>toca el mapa</strong>. <strong>Espacio</strong> para golpear.</p>
-        <button id="suggestPauseBtn" type="button" class="btn btn-ghost btn-small" style="width: auto;">🧘‍♀️ Sugerir Pausa</button>
+        <button id="suggestPauseBtn" type="button" class="btn btn-ghost btn-small" style="width: auto;">☕ Sugerir Pausa</button>
       </div>
     </div>
     <div class="canvas-container" id="canvasContainer">
@@ -75,6 +76,12 @@
     <div class="tab-content active" id="tab-tools">
       <div class="tools-grid">
         
+        <!-- Cuadro Navideño Decorativo -->
+        <div class="panel tool-panel image-panel">
+          <img src="natividad.jpg" alt="Cuadro Navideño de la Oficina" class="decorative-img" />
+          <p class="image-caption">✨ Felices Fiestas de parte de La Oficina ✨</p>
+        </div>
+
         <!-- Contadores -->
         <div class="panel tool-panel">
           <h2>⏳ Cuenta Regresiva</h2>
@@ -103,15 +110,16 @@
           </ul>
         </div>
 
-        <!-- Agua -->
-        <div class="panel tool-panel">
-          <h2>💧 Último en comprar agua</h2>
-          <form id="waterForm" class="inline-form" style="flex-wrap: wrap;">
-            <input type="text" id="waterName" placeholder="¿Quién compró?" maxlength="20" required class="text-input" style="flex: 1 1 100px;" />
-            <input type="date" id="waterDate" required class="text-input" style="flex: 1 1 130px;" />
+        <!-- Compras (Antes Agua) -->
+        <div class="panel tool-panel" style="grid-column: span 2;">
+          <h2>🛒 Registro de Compras</h2>
+          <form id="purchaseForm" class="inline-form" style="flex-wrap: wrap;">
+            <input type="text" id="buyerName" placeholder="¿Quién compró?" maxlength="20" required class="text-input" style="flex: 1 1 120px;" />
+            <input type="text" id="itemBought" placeholder="¿Qué compró? (Ej: Agua, Café)" maxlength="30" required class="text-input" style="flex: 2 1 150px;" />
+            <input type="date" id="purchaseDate" required class="text-input" style="flex: 1 1 130px;" />
             <button type="submit" class="btn btn-primary btn-small">Registrar</button>
           </form>
-          <div id="waterLog" class="water-log-display">
+          <div id="purchaseLog" class="purchase-log-display">
             <!-- Se llena con JS -->
           </div>
         </div>
@@ -169,7 +177,7 @@
     <div class="modal">
       <h2>✨ Nueva votación</h2>
       <label class="field-label">Pregunta</label>
-      <input id="pollQuestion" type="text" placeholder="Ej: ¿Prendemos el aire?" maxlength="120" class="text-input" />
+      <input id="pollQuestion" type="text" placeholder="Ej: ¿Prendemos la calefacción?" maxlength="120" class="text-input" />
       <label class="checkbox-label">
         <input type="checkbox" id="isYesNoPoll" />
         <span>Modo Sí/No (Mascota animada)</span>
@@ -183,6 +191,18 @@
         <button id="addOptionBtn" type="button" class="btn btn-ghost">+ Añadir opción</button>
       </div>
       <button id="createPollBtn" type="button" class="btn btn-primary btn-block">Crear votación</button>
+    </div>
+  </div>
+
+  <!-- MODAL DE MINIJUEGOS -->
+  <div id="gameModal" class="modal-overlay" hidden>
+    <div class="modal game-modal-content">
+      <div class="game-modal-header">
+        <h2>🎮 Minijuegos</h2>
+        <button id="closeGameBtn" class="icon-btn" style="font-size: 1.5rem;">✖</button>
+      </div>
+      <!-- Puedes cambiar la URL del src por otro juego que permita iframe -->
+      <iframe src="https://play2048.co/" class="game-iframe" title="Minijuego"></iframe>
     </div>
   </div>
 
