@@ -71,10 +71,12 @@ const bdayForm = document.getElementById("bdayForm");
 const bdayName = document.getElementById("bdayName");
 const bdayDate = document.getElementById("bdayDate");
 const bdayList = document.getElementById("bdayList");
-const waterForm = document.getElementById("waterForm");
-const waterName = document.getElementById("waterName");
-const waterDateInput = document.getElementById("waterDate");
-const waterLog = document.getElementById("waterLog");
+
+const purchaseForm = document.getElementById("purchaseForm");
+const buyerName = document.getElementById("buyerName");
+const itemBought = document.getElementById("itemBought");
+const purchaseDate = document.getElementById("purchaseDate");
+const purchaseLog = document.getElementById("purchaseLog");
 
 // DOM WIDGET CHAT Y PESTAÑAS
 const chatWidget = document.getElementById("chatWidget");
@@ -83,16 +85,18 @@ const toggleChatBtn = document.getElementById("toggleChatBtn");
 const tabBtns = document.querySelectorAll(".tab-btn");
 const tabContents = document.querySelectorAll(".tab-content");
 
+// DOM MINIJUEGOS
+const gamesBtn = document.getElementById("gamesBtn");
+const gameModal = document.getElementById("gameModal");
+const closeGameBtn = document.getElementById("closeGameBtn");
+
 // ============================================================
-//  LÓGICA DE PESTAÑAS Y CHAT MINIMIZABLE
+//  LÓGICA DE PESTAÑAS, CHAT Y JUEGOS
 // ============================================================
 tabBtns.forEach(btn => {
   btn.addEventListener("click", () => {
-    // Remover active de todos
     tabBtns.forEach(b => b.classList.remove("active"));
     tabContents.forEach(c => c.classList.remove("active"));
-    
-    // Activar el seleccionado
     btn.classList.add("active");
     document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
   });
@@ -102,18 +106,20 @@ function toggleChat() {
   if (chatWidget.classList.contains("minimized")) {
     chatWidget.classList.remove("minimized");
     chatWidget.classList.add("expanded");
-    // Hacer scroll al final al abrir
     setTimeout(() => { chatMessages.scrollTop = chatMessages.scrollHeight; }, 300);
   } else {
     chatWidget.classList.remove("expanded");
     chatWidget.classList.add("minimized");
   }
 }
+chatHeader.addEventListener("click", toggleChat);
 
-chatHeader.addEventListener("click", (e) => {
-  // Si hace clic en el header (pero no en un botón específico si lo hubiera), que abra/cierre
-  toggleChat();
-});
+if(gamesBtn) {
+  gamesBtn.addEventListener("click", () => { gameModal.hidden = false; });
+}
+if(closeGameBtn) {
+  closeGameBtn.addEventListener("click", () => { gameModal.hidden = true; });
+}
 
 // Utilidades
 function avatarUrl(style, seed) {
@@ -181,11 +187,10 @@ enterBtn.addEventListener("click", enterApp);
 nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") enterApp(); });
 
 // ============================================================
-//  CONTADORES, CUMPLEAÑOS Y AGUA
+//  CONTADORES, CUMPLEAÑOS Y COMPRAS
 // ============================================================
 function updateCountdowns() {
   const now = new Date();
-  
   let targetYear = now.getFullYear();
   let jan29 = new Date(targetYear, 0, 29);
   while (jan29 < now || jan29.getDay() !== 5) {
@@ -295,59 +300,71 @@ onSnapshot(query(bdayCollection, orderBy("date", "asc")), (snapshot) => {
     bdayList.appendChild(li);
   });
 
-  document.querySelectorAll(".btn-delete-small").forEach(btn => {
+  document.querySelectorAll(".btn-delete-small[data-id]").forEach(btn => {
     btn.addEventListener("click", async (e) => {
       if (confirm("¿Borrar cumpleaños?")) await deleteDoc(doc(db, "birthdays", e.target.dataset.id));
     });
   });
 });
 
-// --- AGUA ---
-const waterCollection = collection(db, "water_logs");
-if (waterDateInput) waterDateInput.valueAsDate = new Date();
+// --- COMPRAS (Antes Agua) ---
+// Nota: Sigue usando la colección "water_logs" internamente para no perder registros antiguos
+const purchaseCollection = collection(db, "water_logs");
+if (purchaseDate) purchaseDate.valueAsDate = new Date();
 
-if(waterForm) {
-  waterForm.addEventListener("submit", async (e) => {
+if(purchaseForm) {
+  purchaseForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const name = waterName.value.trim();
-    const dateVal = waterDateInput.value; 
-    if (!name || !dateVal) return alert("Falta nombre o fecha.");
+    const name = buyerName.value.trim();
+    const item = itemBought.value.trim();
+    const dateVal = purchaseDate.value; 
+    if (!name || !item || !dateVal) return alert("Falta nombre, artículo o fecha.");
     try {
-      await addDoc(waterCollection, { name, date: dateVal });
-      waterForm.reset();
-      waterDateInput.valueAsDate = new Date();
+      await addDoc(purchaseCollection, { name, item, date: dateVal });
+      purchaseForm.reset();
+      purchaseDate.valueAsDate = new Date();
     } catch (err) { alert("Error al guardar"); }
   });
 }
 
-onSnapshot(query(waterCollection, orderBy("date", "desc"), limit(10)), (snapshot) => {
-  if(!waterLog) return;
-  waterLog.innerHTML = "";
+onSnapshot(query(purchaseCollection, orderBy("date", "desc"), limit(15)), (snapshot) => {
+  if(!purchaseLog) return;
+  purchaseLog.innerHTML = "";
   if (snapshot.empty) {
-    waterLog.innerHTML = `<p style="color:var(--text-dim); font-size:0.9rem; text-align:center;">Nadie ha comprado agua.</p>`;
+    purchaseLog.innerHTML = `<p style="color:var(--text-dim); font-size:0.9rem; text-align:center;">No hay compras registradas.</p>`;
     return;
   }
 
-  const logs = [];
-  snapshot.forEach(doc => logs.push(doc.data()));
-  const formatWaterDate = (dateStr) => {
-    if (dateStr.includes('-')) { const [y, m, d] = dateStr.split('-'); return `${d}/${m}/${y}`; }
-    return dateStr;
+  const formatPurchaseDate = (dateStr) => {
+    if (dateStr && dateStr.includes('-')) { const [y, m, d] = dateStr.split('-'); return `${d}/${m}/${y}`; }
+    return dateStr || "Sin fecha";
   };
 
-  const last = logs[0];
-  const currentDiv = document.createElement("div");
-  currentDiv.className = "water-current";
-  currentDiv.innerHTML = `💧 ${escapeHtml(last.name)} <br><span style="font-size:0.75rem; font-weight:400;">el ${formatWaterDate(last.date)}</span>`;
-  waterLog.appendChild(currentDiv);
+  snapshot.forEach(docSnap => {
+    const data = docSnap.data();
+    const div = document.createElement("div");
+    div.className = "purchase-item";
+    div.innerHTML = `
+      <div class="purchase-item-details">
+        <span class="purchase-name">${escapeHtml(data.name)}</span>
+        <span class="purchase-thing">🛒 ${escapeHtml(data.item || "Agua (Registro antiguo)")}</span>
+        <span class="purchase-date">📅 ${formatPurchaseDate(data.date)}</span>
+      </div>
+      <button class="btn-delete-small" data-id="${docSnap.id}">🗑️</button>
+    `;
+    purchaseLog.appendChild(div);
+  });
 
-  if (logs.length > 1) {
-    const historyDiv = document.createElement("div");
-    historyDiv.className = "water-history";
-    historyDiv.innerHTML = "Anteriores: " + logs.slice(1).map(l => `${l.name} (${formatWaterDate(l.date)})`).join(" · ");
-    waterLog.appendChild(historyDiv);
-  }
+  // Lógica para borrar compras
+  document.querySelectorAll("#purchaseLog .btn-delete-small").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      if (confirm("¿Eliminar este registro de compra?")) {
+        await deleteDoc(doc(db, "water_logs", e.target.dataset.id));
+      }
+    });
+  });
 });
+
 
 // ============================================================
 //  OFICINA VIRTUAL
@@ -522,8 +539,8 @@ function triggerBubble(text) { myCurrentBubble = text; myBubbleTime = Date.now()
 function draw() {
   if(!ctx || !officeCanvas) return;
   ctx.clearRect(0, 0, officeCanvas.width, officeCanvas.height);
-  ctx.fillStyle = "#1e293b"; ctx.fillRect(0, 0, officeCanvas.width, officeCanvas.height);
-  ctx.strokeStyle = "#0f172a"; ctx.lineWidth = 1;
+  ctx.fillStyle = "#0a1710"; ctx.fillRect(0, 0, officeCanvas.width, officeCanvas.height);
+  ctx.strokeStyle = "#14231c"; ctx.lineWidth = 1;
   for (let i = 0; i < officeCanvas.width; i += 32) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, officeCanvas.height); ctx.stroke(); }
   for (let i = 0; i < officeCanvas.height; i += 32) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(officeCanvas.width, i); ctx.stroke(); }
 
@@ -546,10 +563,10 @@ function drawPlayer(x, y, avatarUrl, name, bubbleText, bubbleTime, hp = 100, mut
   if(!ctx) return;
   const img = getAvatarImage(avatarUrl);
   if (img.complete) ctx.drawImage(img, x, y, PLAYER_SIZE, PLAYER_SIZE);
-  else { ctx.fillStyle = "#6366f1"; ctx.fillRect(x, y, PLAYER_SIZE, PLAYER_SIZE); }
+  else { ctx.fillStyle = "#dc2626"; ctx.fillRect(x, y, PLAYER_SIZE, PLAYER_SIZE); }
 
   ctx.fillStyle = "#000"; ctx.fillRect(x, y - 12, PLAYER_SIZE, 5);
-  ctx.fillStyle = hp > 50 ? "#34d399" : (hp > 20 ? "#fbbf24" : "#f87171"); ctx.fillRect(x, y - 12, (hp / 100) * PLAYER_SIZE, 5);
+  ctx.fillStyle = hp > 50 ? "#22c55e" : (hp > 20 ? "#fbbf24" : "#ef4444"); ctx.fillRect(x, y - 12, (hp / 100) * PLAYER_SIZE, 5);
   ctx.fillStyle = "#fff"; ctx.font = "bold 10px Inter, sans-serif"; ctx.textAlign = "center"; ctx.fillText(name, x + PLAYER_SIZE / 2, y - 18);
 
   if (mutedUntil > Date.now()) { ctx.font = "14px Arial"; ctx.fillText("🤐", x + PLAYER_SIZE / 2, y - 25); }
@@ -712,7 +729,7 @@ function renderPoll(poll) {
             else { sign.textContent = "NO"; sign.className = "mascot-sign show red"; }
           }
         }
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ["#6366f1", "#f472b6", "#34d399"] });
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ["#dc2626", "#22c55e", "#fbbf24"] });
         card.querySelectorAll(".poll-option-btn").forEach((b) => (b.disabled = true));
       } catch (error) { alert("Error al registrar el voto."); }
     });
