@@ -21,7 +21,6 @@ let appInitialized = false;
 const AVATAR_STYLES = ["pixel-art", "pixel-art-neutral", "bottts", "adventurer", "micah", "avataaars"]; 
 const AVATAR_SEEDS = ["Felix", "Aneka", "Milo", "Luna", "Leo", "Nina", "Oscar", "Zoe", "Max", "Chloe", "Cristopher", "Esteban", "Carla", "Javi", "Elias", "Lornis"];
 
-// Función vital que faltaba en el código anterior
 function avatarUrl(style, seed) {
   return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=transparent`;
 }
@@ -55,7 +54,7 @@ const adminMoneyLimit = document.getElementById("adminMoneyLimit");
 const ssContent = document.getElementById("ssContent");
 const ssLimitDisplay = document.getElementById("ssLimitDisplay");
 
-// Configuración global del juego
+// Configuración global del juego (Valores por defecto seguros)
 let gameConfig = { muteDuration: 60, hpRegen: 1, moneyLimit: 10000 };
 
 // ============================================================
@@ -106,14 +105,14 @@ onAuthStateChanged(auth, async (user) => {
 
     updateProfileUI();
     
-    // Cargar Configuración global
+    // Cargar Configuración global (Mezclando valores seguros)
     onSnapshot(doc(db, "game_config", "main"), (docSnap) => {
       if(docSnap.exists()) {
-        gameConfig = docSnap.data();
-        adminMuteTime.value = gameConfig.muteDuration;
-        adminHpRegen.value = gameConfig.hpRegen;
-        adminMoneyLimit.value = gameConfig.moneyLimit;
-        ssLimitDisplay.textContent = `Límite: $${gameConfig.moneyLimit.toLocaleString('es-CL')}`;
+        gameConfig = { ...gameConfig, ...docSnap.data() }; // Evita undefined
+        if(adminMuteTime) adminMuteTime.value = gameConfig.muteDuration;
+        if(adminHpRegen) adminHpRegen.value = gameConfig.hpRegen;
+        if(adminMoneyLimit) adminMoneyLimit.value = gameConfig.moneyLimit;
+        if(ssLimitDisplay) ssLimitDisplay.textContent = `Límite: $${(gameConfig.moneyLimit || 10000).toLocaleString('es-CL')}`;
       } else if (currentUser.isAdmin) {
         setDoc(doc(db, "game_config", "main"), gameConfig); // Crear default
       }
@@ -132,18 +131,18 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 function updateProfileUI() {
-  headerAvatar.src = currentUser.avatar;
-  headerName.textContent = currentUser.name;
+  if(headerAvatar) headerAvatar.src = currentUser.avatar;
+  if(headerName) headerName.textContent = currentUser.name;
 }
 
 // Editar Perfil (Nombre + Avatar)
-document.getElementById("changeAvatarBtn").addEventListener("click", () => {
+document.getElementById("changeAvatarBtn")?.addEventListener("click", () => {
   editNameInput.value = currentUser.name;
   buildAvatarPicker();
   profileModal.hidden = false;
 });
 
-saveProfileBtn.addEventListener("click", async () => {
+saveProfileBtn?.addEventListener("click", async () => {
   const newName = editNameInput.value.trim();
   if(!newName) return alert("El nombre no puede estar vacío");
   
@@ -155,6 +154,7 @@ saveProfileBtn.addEventListener("click", async () => {
 });
 
 function buildAvatarPicker() {
+  if(!avatarGrid) return;
   avatarGrid.innerHTML = "";
   AVATAR_STYLES.forEach((style) => {
     AVATAR_SEEDS.forEach((seed) => {
@@ -168,7 +168,7 @@ function buildAvatarPicker() {
         document.querySelectorAll(".avatar-option").forEach((el) => el.classList.remove("selected"));
         img.classList.add("selected");
         currentUser.avatar = url;
-        headerAvatar.src = url;
+        if(headerAvatar) headerAvatar.src = url;
         updateDoc(doc(db, "users_data", currentUser.uid), { avatar: url });
         savePosition(); // Actualizar mapa
       });
@@ -180,14 +180,14 @@ function buildAvatarPicker() {
 // ============================================================
 //  ADMINISTRACIÓN
 // ============================================================
-adminImmunityBtn.addEventListener("click", async () => {
+adminImmunityBtn?.addEventListener("click", async () => {
   currentUser.immunity = !currentUser.immunity;
   adminImmunityBtn.textContent = `🛡️ Inmunidad: ${currentUser.immunity ? 'ON' : 'OFF'}`;
   adminImmunityBtn.style.background = currentUser.immunity ? 'var(--success)' : 'var(--accent)';
   await updateDoc(doc(db, "users_data", currentUser.uid), { immunity: currentUser.immunity });
 });
 
-saveAdminConfigBtn.addEventListener("click", async () => {
+saveAdminConfigBtn?.addEventListener("click", async () => {
   const config = {
     muteDuration: parseInt(adminMuteTime.value) || 60,
     hpRegen: parseFloat(adminHpRegen.value) || 1,
@@ -198,7 +198,7 @@ saveAdminConfigBtn.addEventListener("click", async () => {
   alert("Configuración guardada");
 });
 
-adminBtn.addEventListener("click", () => {
+adminBtn?.addEventListener("click", () => {
   adminImmunityBtn.textContent = `🛡️ Inmunidad: ${currentUser.immunity ? 'ON' : 'OFF'}`;
   adminImmunityBtn.style.background = currentUser.immunity ? 'var(--success)' : 'var(--accent)';
   adminModal.hidden = false;
@@ -211,20 +211,15 @@ let ssDrawn = false;
 let mySSList = [];
 
 function initSecretSanta() {
-  // Escuchar configuración general
   onSnapshot(doc(db, "ss_config", "main"), (docSnap) => {
     if(docSnap.exists()) ssDrawn = docSnap.data().drawn;
     renderSS();
   });
-
-  // Escuchar mi lista de regalos
   onSnapshot(doc(db, "ss_lists", currentUser.uid), (docSnap) => {
     if(docSnap.exists()) mySSList = docSnap.data().gifts || [];
     else mySSList = [];
     renderSS();
   });
-
-  // Escuchar mi resultado (a quién le regalo y qué quiere)
   onSnapshot(doc(db, "ss_results", currentUser.uid), (docSnap) => {
     renderSS(docSnap.exists() ? docSnap.data() : null);
   });
@@ -236,7 +231,6 @@ async function renderSS(myResult = null) {
 
   if (ssDrawn) {
     if (myResult) {
-      // Ya sorteado y tengo asignación
       const gifts = myResult.targetGifts || [];
       let giftsHTML = gifts.map(g => `<li>${g}</li>`).join("");
       if(gifts.length === 0) giftsHTML = "<li>No puso ideas de regalo 😢</li>";
@@ -245,7 +239,7 @@ async function renderSS(myResult = null) {
         <div class="ss-card">
           <h3>🎅 Te toca regalar a:</h3>
           <p style="font-size: 1.5rem; font-weight: 800; color: var(--success); margin: 10px 0;">${myResult.targetName}</p>
-          <p style="font-size: 0.9rem; color: var(--text-dim);">Límite sugerido: $${gameConfig.moneyLimit.toLocaleString('es-CL')}</p>
+          <p style="font-size: 0.9rem; color: var(--text-dim);">Límite sugerido: $${(gameConfig.moneyLimit || 10000).toLocaleString('es-CL')}</p>
           <div style="margin-top: 20px; text-align: left;">
             <h4 style="color: var(--accent); margin-bottom: 8px;">Lista de ideas de regalo:</h4>
             <ul class="ss-gift-list">${giftsHTML}</ul>
@@ -253,13 +247,11 @@ async function renderSS(myResult = null) {
         </div>
       `;
     } else {
-      // Sorteado pero no participé
       ssContent.innerHTML = `<div class="ss-card"><p>El sorteo ya se realizó. No participaste esta vez.</p></div>`;
     }
     return;
   }
 
-  // No sorteado aún
   let giftListHTML = mySSList.map((g, i) => `
     <li><span>${g}</span> <button class="btn-delete-small" onclick="removeGift(${i})">×</button></li>
   `).join("");
@@ -277,17 +269,14 @@ async function renderSS(myResult = null) {
   ssContent.innerHTML = `
     <div class="ss-card">
       <h3>¡Participa en el Amigo Secreto!</h3>
-      <p style="font-size: 0.9rem; margin-bottom: 15px;">Límite de regalo: <strong>$${gameConfig.moneyLimit.toLocaleString('es-CL')}</strong></p>
-      
+      <p style="font-size: 0.9rem; margin-bottom: 15px;">Límite de regalo: <strong>$${(gameConfig.moneyLimit || 10000).toLocaleString('es-CL')}</strong></p>
       <form id="addGiftForm" class="inline-form">
         <input type="text" id="newGiftInput" placeholder="Ej: Taza de café, Chocolate..." maxlength="50" class="text-input" required />
         <button type="submit" class="btn btn-accent">Añadir</button>
       </form>
-      
       <ul class="ss-gift-list" style="margin-top: 15px;">
         ${giftListHTML || '<li style="color:var(--text-dim); justify-content:center;">Aún no has agregado regalos.</li>'}
       </ul>
-      
       ${adminControls}
     </div>
   `;
@@ -317,7 +306,6 @@ async function drawSecretSanta() {
 
   if (participants.length < 3) return alert("Se necesitan al menos 3 personas para sortear.");
 
-  // Algoritmo de mezcla (Nadie se saca a sí mismo)
   let shuffled = [];
   let success = false;
   while(!success) {
@@ -328,11 +316,9 @@ async function drawSecretSanta() {
     }
   }
 
-  // Guardar resultados asegurando privacidad
   for (let i = 0; i < participants.length; i++) {
     const giver = participants[i];
     const receiver = shuffled[i];
-    
     await setDoc(doc(db, "ss_results", giver.uid), {
       targetUid: receiver.uid,
       targetName: receiver.name,
@@ -361,7 +347,6 @@ const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: f
 let lastAttackTime = 0;
 let punchEffect = null; 
 
-// Variables para Arrastrar
 let isDragging = false;
 let draggedPlayerId = null;
 
@@ -373,16 +358,16 @@ function getAvatarImage(url) {
 
 function initOffice() {
   if(!officeCanvas) return;
-  resizeCanvas();
+  
+  // SOLUCIÓN: Esperar medio segundo a que el HTML se dibuje antes de medir el Canvas
+  setTimeout(resizeCanvas, 500);
   window.addEventListener("resize", resizeCanvas);
 
-  // Escuchar posiciones y HP de otros
   onSnapshot(positionsCollection, (snapshot) => {
     players = {}; 
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
       if (docSnap.id === currentUser.uid) {
-        // Si yo recibo un golpe, actualizo mi HP local
         if (data.hp !== undefined && data.hp < currentUser.hp && !currentUser.immunity) {
           currentUser.hp = data.hp;
         }
@@ -396,9 +381,9 @@ function initOffice() {
   setInterval(() => {
     if (currentUser.hp < 100) {
       currentUser.hp = Math.min(100, currentUser.hp + gameConfig.hpRegen);
-      updateHP(); // Solo actualizo mi HP en Firebase
+      updateHP(); 
     }
-  }, 1000); // Cada segundo
+  }, 1000);
 
   savePosition();
   setInterval(() => { if (currentUser.name) savePosition(); }, 2000);
@@ -411,7 +396,6 @@ function initOffice() {
     if (keys.hasOwnProperty(e.key)) { keys[e.key] = false; e.preventDefault(); }
   });
 
-  // Controles Táctiles / Clic (Movimiento y Arrastre)
   officeCanvas.addEventListener("pointerdown", (e) => {
     officeCanvas.focus();
     const rect = officeCanvas.getBoundingClientRect();
@@ -420,7 +404,6 @@ function initOffice() {
     let clickX = (e.clientX - rect.left) * scaleX;
     let clickY = (e.clientY - rect.top) * scaleY;
 
-    // Verificar si hicimos clic sobre otro jugador
     let clickedOnPlayer = null;
     Object.keys(players).forEach(id => {
       const p = players[id];
@@ -444,20 +427,17 @@ function initOffice() {
     const scaleY = officeCanvas.height / rect.height;
     let x = (e.clientX - rect.left) * scaleX - PLAYER_SIZE / 2;
     let y = (e.clientY - rect.top) * scaleY - PLAYER_SIZE / 2;
-    
-    // Actualizar posición del otro jugador en Firebase
     updateDoc(doc(db, "positions", draggedPlayerId), { x: x, y: y });
   });
 
   window.addEventListener("pointerup", () => { isDragging = false; draggedPlayerId = null; });
-
   requestAnimationFrame(gameLoop);
 }
 
 function resizeCanvas() {
   if(!officeCanvas || !canvasContainer) return;
-  officeCanvas.width = canvasContainer.clientWidth;
-  officeCanvas.height = canvasContainer.clientHeight;
+  officeCanvas.width = canvasContainer.clientWidth || 800; // Fallback por si acaso
+  officeCanvas.height = canvasContainer.clientHeight || 300;
 }
 
 function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
@@ -502,14 +482,12 @@ function savePosition() {
   let bubbleToSend = myCurrentBubble;
   if (now - myBubbleTime > 5000) { bubbleToSend = ""; myCurrentBubble = ""; }
 
-  // NOTA: No enviamos 'hp' aquí para no sobreescribir el daño. Solo enviamos la posición.
   setDoc(docRef, {
     x: myPosition.x, y: myPosition.y, name: currentUser.name, avatar: currentUser.avatar,
     bubbleText: bubbleToSend, bubbleTime: myBubbleTime, lastUpdate: serverTimestamp()
   }, { merge: true });
 }
 
-// Función separada para actualizar HP
 function updateHP() {
   const docRef = doc(positionsCollection, currentUser.uid);
   updateDoc(docRef, { hp: currentUser.hp, mutedUntil: currentUser.mutedUntil }).catch(e => {});
@@ -532,7 +510,6 @@ function attack() {
 
   if (closestPlayer) {
     const targetData = players[closestPlayer];
-    // Si el objetivo es admin con inmunidad, no le hacemos daño
     if (targetData.immunity) return; 
 
     let targetHp = targetData.hp !== undefined ? targetData.hp : 100;
@@ -541,7 +518,7 @@ function attack() {
 
     if (newHp <= 0) { 
       newHp = 100; 
-      newMutedUntil = now + (gameConfig.muteDuration * 1000); // Usar config del admin
+      newMutedUntil = now + (gameConfig.muteDuration * 1000);
     }
     updateDoc(doc(db, "positions", closestPlayer), { hp: newHp, mutedUntil: newMutedUntil });
   }
@@ -550,7 +527,7 @@ function attack() {
 function triggerBubble(text) { myCurrentBubble = text; myBubbleTime = Date.now(); savePosition(); }
 
 function draw() {
-  if(!ctx || !officeCanvas) return;
+  if(!ctx || !officeCanvas || officeCanvas.width === 0) return;
   ctx.clearRect(0, 0, officeCanvas.width, officeCanvas.height);
   ctx.fillStyle = "#0a1710"; ctx.fillRect(0, 0, officeCanvas.width, officeCanvas.height);
   ctx.strokeStyle = "#14231c"; ctx.lineWidth = 1;
@@ -578,7 +555,6 @@ function drawPlayer(x, y, avatarUrl, name, bubbleText, bubbleTime, hp = 100, mut
   if (img.complete) ctx.drawImage(img, x, y, PLAYER_SIZE, PLAYER_SIZE);
   else { ctx.fillStyle = "#dc2626"; ctx.fillRect(x, y, PLAYER_SIZE, PLAYER_SIZE); }
 
-  // Barra HP (Si es inmune, se ve dorada)
   ctx.fillStyle = "#000"; ctx.fillRect(x, y - 12, PLAYER_SIZE, 5);
   ctx.fillStyle = immunity ? "#fbbf24" : (hp > 50 ? "#22c55e" : (hp > 20 ? "#fbbf24" : "#ef4444")); 
   ctx.fillRect(x, y - 12, (hp / 100) * PLAYER_SIZE, 5);
@@ -603,7 +579,7 @@ function updateCountdowns() {
   let targetYear = now.getFullYear();
   let jan29 = new Date(targetYear, 0, 29);
   while (jan29 < now || jan29.getDay() !== 5) { targetYear++; jan29 = new Date(targetYear, 0, 29); }
-  document.getElementById("cd-jan29").innerText = `${Math.floor((jan29 - now) / (1000 * 60 * 60 * 24))} días`;
+  if(document.getElementById("cd-jan29")) document.getElementById("cd-jan29").innerText = `${Math.floor((jan29 - now) / (1000 * 60 * 60 * 24))} días`;
 
   const year = now.getFullYear();
   const holidays = [
@@ -612,8 +588,8 @@ function updateCountdowns() {
   ];
   let nextHoliday = holidays.find(h => new Date(h.date + 'T00:00:00') > now);
   if (!nextHoliday) nextHoliday = { name: "Año Nuevo", date: new Date(year + 1, 0, 1) };
-  document.getElementById("cd-holiday-name").innerText = nextHoliday.name;
-  document.getElementById("cd-holiday").innerText = `${Math.ceil((new Date(nextHoliday.date + 'T00:00:00') - now) / (1000 * 60 * 60 * 24))} días`;
+  if(document.getElementById("cd-holiday-name")) document.getElementById("cd-holiday-name").innerText = nextHoliday.name;
+  if(document.getElementById("cd-holiday")) document.getElementById("cd-holiday").innerText = `${Math.ceil((new Date(nextHoliday.date + 'T00:00:00') - now) / (1000 * 60 * 60 * 24))} días`;
 }
 setInterval(updateCountdowns, 60000); updateCountdowns();
 
@@ -656,7 +632,7 @@ onSnapshot(query(bdayCollection, orderBy("date", "asc")), (snapshot) => {
 });
 
 const purchaseCollection = collection(db, "water_logs");
-document.getElementById("purchaseDate").valueAsDate = new Date();
+if(document.getElementById("purchaseDate")) document.getElementById("purchaseDate").valueAsDate = new Date();
 document.getElementById("purchaseForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   await addDoc(purchaseCollection, { name: document.getElementById("buyerName").value, item: document.getElementById("itemBought").value, date: document.getElementById("purchaseDate").value });
@@ -685,7 +661,7 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
   });
 });
 
-document.getElementById("chatHeader").addEventListener("click", () => {
+document.getElementById("chatHeader")?.addEventListener("click", () => {
   const w = document.getElementById("chatWidget");
   w.classList.toggle("minimized"); w.classList.toggle("expanded");
 });
@@ -701,7 +677,7 @@ onSnapshot(query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(
   chatMessages.scrollTop = chatMessages.scrollHeight;
 });
 
-document.getElementById("chatForm").addEventListener("submit", async (e) => {
+document.getElementById("chatForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = document.getElementById("chatInput").value.trim();
   if(!text) return;
