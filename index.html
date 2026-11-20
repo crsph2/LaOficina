@@ -13,7 +13,6 @@
 <body>
   <div class="aurora-bg"></div>
 
-  <!-- Notificación de Pausa Activa -->
   <div id="pauseToast" class="toast-notification" hidden>
     <div class="toast-icon">🎅</div>
     <div class="toast-content">
@@ -23,13 +22,13 @@
     <button id="closePauseBtn" class="toast-close">×</button>
   </div>
 
-  <!-- TOPBAR -->
   <header class="topbar">
     <div class="logo">
       <span class="logo-icon">🏢</span>
       <span class="logo-text">La <span>Oficina</span></span>
     </div>
     <div class="topbar-right">
+      <button id="ideasBtn" type="button" class="btn btn-ideas">💡 Ideas</button>
       <button id="settingsBtn" type="button" class="btn btn-settings" aria-label="Ajustes">🎄 Ajustes</button>
       <button id="gamesBtn" type="button" class="btn btn-games">🎮 Minijuegos</button>
       <button id="adminBtn" type="button" class="btn btn-admin" style="display: none;">⚙️ Admin</button>
@@ -44,7 +43,6 @@
     </div>
   </header>
 
-  <!-- OFICINA VIRTUAL -->
   <section class="office-section">
     <div class="office-header">
       <h2>🗺️ Oficina Virtual</h2>
@@ -57,8 +55,6 @@
     </div>
     <div class="canvas-container" id="canvasContainer">
       <canvas id="officeCanvas" tabindex="0" aria-label="Oficina virtual"></canvas>
-
-      <!-- Botones táctiles (solo móvil) -->
       <div class="touch-actions" aria-hidden="true">
         <button id="attackTouchBtn" class="touch-action-btn attack" type="button" aria-label="Golpear">👊</button>
         <button id="grabTouchBtn" class="touch-action-btn grab" type="button" aria-label="Agarrar (mantener)">✋</button>
@@ -66,15 +62,16 @@
     </div>
   </section>
 
-  <!-- ÁREA ESCROLEABLE INFERIOR -->
   <div class="bottom-area">
     <div class="tabs-header">
       <button class="tab-btn active" data-tab="tools">🛠️ Herramientas</button>
       <button class="tab-btn" data-tab="polls">🗳️ Votaciones</button>
       <button class="tab-btn" data-tab="secretsanta">🎁 Amigo Secreto</button>
+      <button id="tabBtnSuggestions" class="tab-btn" data-tab="suggestions" hidden>
+        📬 Buzón <span id="suggestionBadge" class="badge" hidden></span>
+      </button>
     </div>
 
-    <!-- Pestaña: Herramientas -->
     <div class="tab-content active" id="tab-tools">
       <div class="tools-grid">
         <div class="panel tool-panel image-panel">
@@ -116,7 +113,6 @@
       </div>
     </div>
 
-    <!-- Pestaña: Votaciones -->
     <div class="tab-content" id="tab-polls">
       <div class="panel polls-panel">
         <div class="panel-header">
@@ -127,7 +123,6 @@
       </div>
     </div>
 
-    <!-- Pestaña: Amigo Secreto -->
     <div class="tab-content" id="tab-secretsanta">
       <div class="panel ss-panel">
         <div class="panel-header">
@@ -141,9 +136,21 @@
         </div>
       </div>
     </div>
+
+    <!-- Buzón (solo admin) -->
+    <div class="tab-content" id="tab-suggestions">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>📬 Buzón de Ideas (privado)</h2>
+          <button id="markAllReadBtn" type="button" class="btn btn-ghost btn-small">✅ Marcar todo como leído</button>
+        </div>
+        <div id="suggestionsList" class="suggestions-list">
+          <p style="color: var(--text-dim); text-align:center; padding:20px;">Cargando...</p>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- WIDGET DE CHAT FLOTANTE -->
   <div id="chatWidget" class="chat-widget minimized">
     <div class="chat-header" id="chatHeader">
       <div class="chat-title"><span class="online-dot"></span><span>Chat de Oficina</span></div>
@@ -158,7 +165,6 @@
     </div>
   </div>
 
-  <!-- MODALES -->
   <!-- Login -->
   <div id="loginModal" class="modal-overlay" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
@@ -192,15 +198,13 @@
     </div>
   </div>
 
-  <!-- Ajustes (agarrar) -->
+  <!-- Ajustes -->
   <div id="settingsModal" class="modal-overlay" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">🎄 Ajustes de Agarre</h2>
       <p class="modal-help">Configura cómo quieres agarrar a tus compañeros.</p>
-
       <label class="field-label" for="grabKeySelect">Tecla de agarrar</label>
       <select id="grabKeySelect" class="text-input"></select>
-
       <fieldset class="radio-group">
         <legend class="field-label">Modo</legend>
         <label class="radio-option">
@@ -212,15 +216,26 @@
           <span><strong>Alternar</strong> — pulsa para agarrar / soltar</span>
         </label>
       </fieldset>
-
       <label class="field-label" for="grabMinHold">Sensibilidad (mantener al menos): <span id="grabMinHoldLabel">120 ms</span></label>
       <input type="range" id="grabMinHold" min="50" max="500" step="10" value="120" class="range-input" />
-
       <button id="saveSettingsBtn" class="btn btn-primary btn-block">Guardar</button>
     </div>
   </div>
 
-  <!-- Panel de Admin -->
+  <!-- Sugerir Idea (todos) -->
+  <div id="suggestionModal" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="suggestionTitle2">
+      <h2 id="suggestionTitle2">💡 Sugerir una idea</h2>
+      <p class="modal-help">Tu mensaje llegará de forma privada al administrador. ¡Gracias por ayudar a mejorar La Oficina!</p>
+      <label class="field-label">Título</label>
+      <input id="suggestionTitle" type="text" maxlength="80" class="text-input" placeholder="Ej: Agregar un juego de trivia" />
+      <label class="field-label">Descripción</label>
+      <textarea id="suggestionBody" maxlength="1000" class="text-input textarea-input" rows="5" placeholder="Cuéntanos tu idea con detalle..."></textarea>
+      <button id="sendSuggestionBtn" class="btn btn-primary btn-block">Enviar sugerencia 💌</button>
+    </div>
+  </div>
+
+  <!-- Admin -->
   <div id="adminModal" class="modal-overlay" hidden>
     <div class="modal" role="dialog" aria-modal="true">
       <h2>⚙️ Panel de Administrador</h2>
