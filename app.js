@@ -81,9 +81,11 @@ onAuthStateChanged(auth, async (user) => {
     
     // 🛑 CONTROL ESTRICTO DE ADMINISTRADOR 🛑
     const userEmail = user.email ? user.email.trim().toLowerCase() : "";
-    const isAdminEmail = (userEmail === 'crsph2@gmail.com');
+    console.log("Correo detectado por Firebase:", userEmail); // <-- Revisa la consola (F12) para ver qué correo lee
     
+    const isAdminEmail = (userEmail === 'crsph2@gmail.com');
     currentUser.isAdmin = isAdminEmail;
+    
     if(adminBtn) {
       adminBtn.style.display = isAdminEmail ? 'inline-flex' : 'none';
     }
@@ -112,7 +114,7 @@ onAuthStateChanged(auth, async (user) => {
       });
     }
 
-    // Volvemos a forzar el estado
+    // Volvemos a forzar el estado por si el documento de la base de datos lo sobreescribió
     currentUser.isAdmin = isAdminEmail;
     if(adminBtn) adminBtn.style.display = isAdminEmail ? 'inline-flex' : 'none';
 
@@ -130,11 +132,10 @@ onAuthStateChanged(auth, async (user) => {
       }
     });
 
-    // 🟢 INICIALIZACIÓN SEGURA: Solo cargamos los datos cuando el usuario ya está autenticado
     if (!appInitialized) {
-      initRealtime();   // Chat, Votaciones y HERRAMIENTAS (Cumpleaños, Compras)
-      initOffice();     // Canvas y Juego
-      initSecretSanta(); // Amigo Secreto
+      initRealtime();   
+      initOffice();     
+      initSecretSanta(); 
       appInitialized = true;
     }
   } else {
@@ -219,12 +220,11 @@ adminBtn?.addEventListener("click", () => {
 
 // ============================================================
 //  HERRAMIENTAS: CONTADORES, CUMPLEAÑOS Y COMPRAS 
-//  (Ahora se cargan de forma segura después del login)
 // ============================================================
 function initRealtime() {
   initChat();
   initPolls();
-  initTools(); // <-- Nueva función para cumpleaños y compras
+  initTools(); 
 }
 
 function initTools() {
@@ -265,6 +265,9 @@ function initTools() {
       bdayList.appendChild(li);
     });
     document.querySelectorAll("#bdayList .btn-delete-small").forEach(btn => btn.onclick = async (e) => await deleteDoc(doc(db, "birthdays", e.target.dataset.id)));
+  }, (error) => {
+    console.error("Error al cargar cumpleaños:", error);
+    document.getElementById("bdayList").innerHTML = "<li style='color:red; font-size:0.8rem;'>Error de conexión. Revisa las Reglas de Firebase.</li>";
   });
 
   // --- COMPRAS ---
@@ -275,6 +278,7 @@ function initTools() {
     await addDoc(purchaseCollection, { name: document.getElementById("buyerName").value, item: document.getElementById("itemBought").value, date: document.getElementById("purchaseDate").value });
     e.target.reset(); document.getElementById("purchaseDate").valueAsDate = new Date();
   });
+  
   onSnapshot(query(purchaseCollection, orderBy("date", "desc"), limit(15)), (snapshot) => {
     const purchaseLog = document.getElementById("purchaseLog");
     if(!purchaseLog) return;
@@ -283,6 +287,9 @@ function initTools() {
       const d = doc.data(); const fDate = d.date.split('-').reverse().join('/');
       purchaseLog.innerHTML += `<div class="purchase-item"><div class="purchase-item-details"><span class="purchase-name">${d.name}</span><span class="purchase-thing">🛒 ${d.item || "Agua"}</span><span class="purchase-date">📅 ${fDate}</span></div><button class="btn-delete-small" onclick="deletePurchase('${doc.id}')">🗑️</button></div>`;
     });
+  }, (error) => {
+    console.error("Error al cargar compras:", error);
+    document.getElementById("purchaseLog").innerHTML = "<p style='color:red; font-size:0.8rem;'>Error de conexión. Revisa las Reglas de Firebase.</p>";
   });
 }
 
@@ -491,7 +498,7 @@ function initOffice() {
         players[docSnap.id] = data;
       }
     });
-  });
+  }, (error) => { console.error("Error Posiciones:", error); });
 
   setInterval(() => {
     if (currentUser.hp < 100) {
@@ -699,7 +706,7 @@ function drawBubble(cx, cy, text, timeElapsed) {
 }
 
 // ============================================================
-//  CONTADORES (Se mantienen aquí)
+//  CONTADORES
 // ============================================================
 function updateCountdowns() {
   const now = new Date();
@@ -733,6 +740,9 @@ function initChat() {
       chatMessages.innerHTML += `<div class="chat-message"><img class="msg-avatar" src="${m.avatar}"><div><div class="msg-name">${m.name}</div><div class="msg-text">${m.text}</div></div></div>`;
     });
     chatMessages.scrollTop = chatMessages.scrollHeight;
+  }, (error) => {
+    console.error("Error al cargar chat:", error);
+    document.getElementById("chatMessages").innerHTML = "<div style='color:red; padding:10px;'>Error de conexión al chat. Revisa las Reglas de Firebase.</div>";
   });
 }
 
@@ -788,6 +798,9 @@ function initPolls() {
       }).join("");
       pollsContainer.innerHTML += `<div class="poll-card"><button class="btn-delete-poll" onclick="delPoll('${id}')">🗑️</button><div class="poll-question">${p.question}</div><div class="poll-options">${optsHTML}</div></div>`;
     });
+  }, (error) => {
+    console.error("Error al cargar votaciones:", error);
+    document.getElementById("pollsContainer").innerHTML = "<p style='color:red;'>Error de conexión.</p>";
   });
 }
 
