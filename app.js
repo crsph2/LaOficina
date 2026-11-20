@@ -16,6 +16,17 @@ import {
   getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+// IMPORTACIONES DE AUTENTICACIÓN
+import { 
+  getAuth, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  onAuthStateChanged,
+  signOut 
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyDJE3mYAvvOyrmL2riktXB-mdt0iH2iN5k",
   authDomain: "laoficina-81e4a.firebaseapp.com",
@@ -31,22 +42,35 @@ const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
   useFetchStreams: false,
 });
+const auth = getAuth(app);
 
-let currentUser = { name: "", avatar: "", hp: 100, mutedUntil: 0 };
+let currentUser = { uid: "", name: "", avatar: "", hp: 100, mutedUntil: 0 };
+let appInitialized = false; // Para evitar doble inicialización
 
 const AVATAR_STYLES = ["pixel-art", "pixel-art-neutral", "bottts", "adventurer", "micah", "avataaars"]; 
 const AVATAR_SEEDS = ["Felix", "Aneka", "Milo", "Luna", "Leo", "Nina", "Oscar", "Zoe", "Max", "Chloe", "Cristopher", "Esteban", "Carla", "Javi", "Elias", "Lornis"];
 
 // DOM
-const loginBtn = document.getElementById("loginBtn");
 const userProfile = document.getElementById("userProfile");
 const headerAvatar = document.getElementById("headerAvatar");
 const headerName = document.getElementById("headerName");
 const changeAvatarBtn = document.getElementById("changeAvatarBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+
+// DOM LOGIN
 const loginModal = document.getElementById("loginModal");
-const nameInput = document.getElementById("nameInput");
+const emailInput = document.getElementById("emailInput");
+const passwordInput = document.getElementById("passwordInput");
+const loginEmailBtn = document.getElementById("loginEmailBtn");
+const registerEmailBtn = document.getElementById("registerEmailBtn");
+const googleLoginBtn = document.getElementById("googleLoginBtn");
+
+// DOM AVATAR MODAL
+const avatarModal = document.getElementById("avatarModal");
 const avatarGrid = document.getElementById("avatarGrid");
-const enterBtn = document.getElementById("enterBtn");
+const closeAvatarBtn = document.getElementById("closeAvatarBtn");
+
+// Resto del DOM
 const pollsContainer = document.getElementById("pollsContainer");
 const newPollBtn = document.getElementById("newPollBtn");
 const pollModal = document.getElementById("pollModal");
@@ -66,7 +90,6 @@ const pauseToastText = document.getElementById("pauseToastText");
 const closePauseBtn = document.getElementById("closePauseBtn");
 const suggestPauseBtn = document.getElementById("suggestPauseBtn");
 
-// DOM NUEVAS FUNCIONES
 const bdayForm = document.getElementById("bdayForm");
 const bdayName = document.getElementById("bdayName");
 const bdayDate = document.getElementById("bdayDate");
@@ -78,17 +101,137 @@ const itemBought = document.getElementById("itemBought");
 const purchaseDate = document.getElementById("purchaseDate");
 const purchaseLog = document.getElementById("purchaseLog");
 
-// DOM WIDGET CHAT Y PESTAÑAS
 const chatWidget = document.getElementById("chatWidget");
 const chatHeader = document.getElementById("chatHeader");
-const toggleChatBtn = document.getElementById("toggleChatBtn");
 const tabBtns = document.querySelectorAll(".tab-btn");
 const tabContents = document.querySelectorAll(".tab-content");
 
-// DOM MINIJUEGOS
 const gamesBtn = document.getElementById("gamesBtn");
 const gameModal = document.getElementById("gameModal");
 const closeGameBtn = document.getElementById("closeGameBtn");
+
+// ============================================================
+//  LÓGICA DE AUTENTICACIÓN
+// ============================================================
+googleLoginBtn.addEventListener("click", async () => {
+  const provider = new GoogleAuthProvider();
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (error) {
+    console.error(error);
+    alert("Error al conectar con Google: " + error.message);
+  }
+});
+
+loginEmailBtn.addEventListener("click", async () => {
+  const email = emailInput.value.trim();
+  const pass = passwordInput.value;
+  if(!email || !pass) return alert("Completa correo y contraseña.");
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (error) {
+    alert("Error al iniciar sesión: " + error.message);
+  }
+});
+
+registerEmailBtn.addEventListener("click", async () => {
+  const email = emailInput.value.trim();
+  const pass = passwordInput.value;
+  if(!email || !pass) return alert("Completa correo y contraseña.");
+  if(pass.length < 6) return alert("La contraseña debe tener al menos 6 caracteres.");
+  try {
+    await createUserWithEmailAndPassword(auth, email, pass);
+    alert("¡Cuenta creada con éxito! Iniciando sesión...");
+  } catch (error) {
+    alert("Error al registrarse: " + error.message);
+  }
+});
+
+logoutBtn.addEventListener("click", () => {
+  if(confirm("¿Seguro que quieres salir?")) {
+    signOut(auth);
+    window.location.reload(); // Recargar para limpiar estado
+  }
+});
+
+// Escuchar el estado del usuario
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    // Usuario logueado
+    loginModal.hidden = true;
+    userProfile.hidden = false;
+
+    const saved = localStorage.getItem("officeLiveUser");
+    let savedData = saved ? JSON.parse(saved) : null;
+
+    // Si ya teníamos datos guardados y coinciden con el UID, los usamos
+    if (savedData && savedData.uid === user.uid) {
+      currentUser = savedData;
+    } else {
+      // Nuevo usuario o login desde otro dispositivo
+      currentUser.uid = user.uid;
+      currentUser.name = user.displayName || user.email.split('@')[0];
+      currentUser.avatar = user.photoURL || avatarUrl('pixel-art', user.email);
+      currentUser.hp = 100;
+      currentUser.mutedUntil = 0;
+      localStorage.setItem("officeLiveUser", JSON.stringify(currentUser));
+    }
+
+    updateProfileUI();
+
+    // Iniciar la app solo una vez para evitar duplicar listeners
+    if (!appInitialized) {
+      initRealtime();
+      initOffice();
+      appInitialized = true;
+    }
+  } else {
+    // No logueado
+    loginModal.hidden = false;
+    userProfile.hidden = true;
+  }
+});
+
+// ============================================================
+//  PERFIL Y AVATARES
+// ============================================================
+function updateProfileUI() {
+  headerAvatar.src = currentUser.avatar;
+  headerName.textContent = currentUser.name;
+}
+
+changeAvatarBtn.addEventListener("click", () => {
+  buildAvatarPicker();
+  avatarModal.hidden = false;
+});
+
+closeAvatarBtn.addEventListener("click", () => {
+  avatarModal.hidden = true;
+});
+
+function buildAvatarPicker() {
+  avatarGrid.innerHTML = "";
+  AVATAR_STYLES.forEach((style) => {
+    AVATAR_SEEDS.forEach((seed) => {
+      const url = avatarUrl(style, seed);
+      const img = document.createElement("img");
+      img.src = url;
+      img.className = "avatar-option";
+      img.loading = "lazy";
+      img.addEventListener("click", () => {
+        document.querySelectorAll(".avatar-option").forEach((el) => el.classList.remove("selected"));
+        img.classList.add("selected");
+        
+        // Actualizar visualmente y guardar
+        currentUser.avatar = url;
+        headerAvatar.src = url;
+        localStorage.setItem("officeLiveUser", JSON.stringify(currentUser));
+        savePosition(); // Para que el cambio se refleje en el mapa
+      });
+      avatarGrid.appendChild(img);
+    });
+  });
+}
 
 // ============================================================
 //  LÓGICA DE PESTAÑAS, CHAT Y JUEGOS
@@ -102,7 +245,7 @@ tabBtns.forEach(btn => {
   });
 });
 
-function toggleChat() {
+chatHeader.addEventListener("click", () => {
   if (chatWidget.classList.contains("minimized")) {
     chatWidget.classList.remove("minimized");
     chatWidget.classList.add("expanded");
@@ -111,15 +254,10 @@ function toggleChat() {
     chatWidget.classList.remove("expanded");
     chatWidget.classList.add("minimized");
   }
-}
-chatHeader.addEventListener("click", toggleChat);
+});
 
-if(gamesBtn) {
-  gamesBtn.addEventListener("click", () => { gameModal.hidden = false; });
-}
-if(closeGameBtn) {
-  closeGameBtn.addEventListener("click", () => { gameModal.hidden = true; });
-}
+if(gamesBtn) gamesBtn.addEventListener("click", () => { gameModal.hidden = false; });
+if(closeGameBtn) closeGameBtn.addEventListener("click", () => { gameModal.hidden = true; });
 
 // Utilidades
 function avatarUrl(style, seed) {
@@ -135,56 +273,6 @@ function escapeHtml(str) {
   div.textContent = str;
   return div.innerHTML;
 }
-
-// Login
-let selectedAvatarUrl = "";
-function buildAvatarPicker() {
-  avatarGrid.innerHTML = "";
-  AVATAR_STYLES.forEach((style) => {
-    AVATAR_SEEDS.forEach((seed) => {
-      const url = avatarUrl(style, seed);
-      const img = document.createElement("img");
-      img.src = url;
-      img.className = "avatar-option";
-      img.loading = "lazy";
-      img.addEventListener("click", () => {
-        document.querySelectorAll(".avatar-option").forEach((el) => el.classList.remove("selected"));
-        img.classList.add("selected");
-        selectedAvatarUrl = url;
-      });
-      avatarGrid.appendChild(img);
-    });
-  });
-  const first = avatarGrid.querySelector(".avatar-option");
-  if (first) { first.classList.add("selected"); selectedAvatarUrl = first.src; }
-}
-function updateProfileUI() {
-  headerAvatar.src = currentUser.avatar;
-  headerName.textContent = currentUser.name;
-  userProfile.hidden = false;
-  loginBtn.hidden = true;
-}
-function enterApp() {
-  const name = nameInput.value.trim();
-  if (!name) return alert("Por favor, escribe tu nombre.");
-  if (!selectedAvatarUrl) return alert("Elige un avatar.");
-  
-  currentUser.name = name;
-  currentUser.avatar = selectedAvatarUrl;
-  currentUser.hp = 100;
-  currentUser.mutedUntil = 0;
-  
-  localStorage.setItem("officeLiveUser", JSON.stringify(currentUser));
-  
-  updateProfileUI();
-  loginModal.hidden = true;
-  initRealtime();
-  initOffice(); 
-}
-loginBtn.addEventListener("click", () => { buildAvatarPicker(); loginModal.hidden = false; });
-changeAvatarBtn.addEventListener("click", () => { buildAvatarPicker(); loginModal.hidden = false; });
-enterBtn.addEventListener("click", enterApp);
-nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") enterApp(); });
 
 // ============================================================
 //  CONTADORES, CUMPLEAÑOS Y COMPRAS
@@ -222,14 +310,9 @@ function updateCountdowns() {
   let nextHoliday = null;
   for (let h of holidays) {
     let hDate = new Date(h.date + 'T00:00:00');
-    if (hDate > now) {
-      nextHoliday = { name: h.name, date: hDate };
-      break;
-    }
+    if (hDate > now) { nextHoliday = { name: h.name, date: hDate }; break; }
   }
-  if (!nextHoliday) {
-    nextHoliday = { name: "Año Nuevo", date: new Date(year + 1, 0, 1) };
-  }
+  if (!nextHoliday) nextHoliday = { name: "Año Nuevo", date: new Date(year + 1, 0, 1) };
 
   const diffHoliday = nextHoliday.date - now;
   const daysHoliday = Math.ceil(diffHoliday / (1000 * 60 * 60 * 24));
@@ -307,8 +390,7 @@ onSnapshot(query(bdayCollection, orderBy("date", "asc")), (snapshot) => {
   });
 });
 
-// --- COMPRAS (Antes Agua) ---
-// Nota: Sigue usando la colección "water_logs" internamente para no perder registros antiguos
+// --- COMPRAS ---
 const purchaseCollection = collection(db, "water_logs");
 if (purchaseDate) purchaseDate.valueAsDate = new Date();
 
@@ -355,16 +437,14 @@ onSnapshot(query(purchaseCollection, orderBy("date", "desc"), limit(15)), (snaps
     purchaseLog.appendChild(div);
   });
 
-  // Lógica para borrar compras
   document.querySelectorAll("#purchaseLog .btn-delete-small").forEach(btn => {
     btn.addEventListener("click", async (e) => {
-      if (confirm("¿Eliminar este registro de compra?")) {
+      if (confirm("¿Eliminar este registro?")) {
         await deleteDoc(doc(db, "water_logs", e.target.dataset.id));
       }
     });
   });
 });
-
 
 // ============================================================
 //  OFICINA VIRTUAL
@@ -521,6 +601,7 @@ function update() {
 let lastSave = 0, myCurrentBubble = "", myBubbleTime = 0;     
 
 function savePosition() {
+  if (!currentUser.name) return;
   const now = Date.now();
   if (now - lastSave < 100) return; 
   lastSave = now;
@@ -787,24 +868,7 @@ if(createPollBtn) {
   });
 }
 
-// Inicio
 function initRealtime() { initChat(); initPolls(); }
-function checkSavedUser() {
-  const saved = localStorage.getItem("officeLiveUser");
-  if (saved) {
-    try {
-      currentUser = JSON.parse(saved);
-      if (currentUser.name && currentUser.avatar) {
-        if (!currentUser.hp) currentUser.hp = 100;
-        if (!currentUser.mutedUntil) currentUser.mutedUntil = 0;
-        updateProfileUI(); initRealtime(); initOffice(); return;
-      }
-    } catch (_) {}
-  }
-  buildAvatarPicker();
-  if(loginModal) loginModal.hidden = false;
-}
-checkSavedUser();
 
 // PWA
 if ('serviceWorker' in navigator) {
