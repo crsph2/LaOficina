@@ -44,8 +44,8 @@
         <img id="headerAvatar" class="avatar" alt="Avatar" />
         <span id="headerName" class="user-name"></span>
         <button id="changeAvatarBtn" type="button" class="icon-btn" title="Cambiar avatar">✏️</button>
+        <button id="logoutBtn" type="button" class="btn btn-ghost" style="padding: 5px 10px; font-size: 0.8rem; margin-left: 5px; border-color: var(--danger); color: var(--danger);">Salir</button>
       </div>
-      <button id="loginBtn" type="button" class="btn btn-primary">Entrar</button>
     </div>
   </header>
 
@@ -110,7 +110,7 @@
           </ul>
         </div>
 
-        <!-- Compras (Antes Agua) -->
+        <!-- Compras -->
         <div class="panel tool-panel" style="grid-column: span 2;">
           <h2>🛒 Registro de Compras</h2>
           <form id="purchaseForm" class="inline-form" style="flex-wrap: wrap;">
@@ -160,35 +160,42 @@
     </div>
   </div>
 
-  <!-- MODALES -->
+  <!-- MODAL DE LOGIN (Correo/Google) -->
   <div id="loginModal" class="modal-overlay" hidden>
-  <div class="modal">
-    <h2>👋 ¡Bienvenido/a!</h2>
-    <p>Inicia sesión para entrar a la oficina.</p>
-    
-    <!-- Formulario de Email/Password -->
-    <label class="field-label">Correo electrónico</label>
-    <input id="emailInput" type="email" placeholder="tu@correo.com" class="text-input" />
-    
-    <label class="field-label">Contraseña</label>
-    <input id="passwordInput" type="password" placeholder="••••••••" class="text-input" />
-    
-    <div style="display: flex; gap: 10px; margin-top: 20px;">
-      <button id="loginEmailBtn" class="btn btn-primary" style="flex: 1;">Iniciar Sesión</button>
-      <button id="registerEmailBtn" class="btn btn-accent" style="flex: 1;">Registrarse</button>
+    <div class="modal">
+      <h2>👋 ¡Bienvenido/a!</h2>
+      <p>Inicia sesión para entrar a la oficina.</p>
+      
+      <label class="field-label">Correo electrónico</label>
+      <input id="emailInput" type="email" placeholder="tu@correo.com" class="text-input" />
+      
+      <label class="field-label">Contraseña</label>
+      <input id="passwordInput" type="password" placeholder="••••••••" class="text-input" />
+      
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button id="loginEmailBtn" class="btn btn-primary" style="flex: 1;">Iniciar Sesión</button>
+        <button id="registerEmailBtn" class="btn btn-accent" style="flex: 1;">Registrarse</button>
+      </div>
+
+      <div style="text-align: center; margin: 20px 0; color: var(--text-dim);">— O —</div>
+
+      <button id="googleLoginBtn" class="btn btn-ghost" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid var(--border);">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style="width: 20px; height: 20px;" />
+        Continuar con Google
+      </button>
     </div>
-
-    <div style="text-align: center; margin: 20px 0; color: var(--text-dim);">— O —</div>
-
-    <!-- Botón de Google -->
-    <button id="googleLoginBtn" class="btn btn-ghost" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid var(--border);">
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style="width: 20px; height: 20px;" />
-      Continuar con Google
-    </button>
-
-    <button id="closeLoginModalBtn" class="btn btn-ghost" style="width: 100%; margin-top: 10px;">Cancelar</button>
   </div>
-</div>
+
+  <!-- MODAL PARA CAMBIAR AVATAR -->
+  <div id="avatarModal" class="modal-overlay" hidden>
+    <div class="modal">
+      <h2>✏️ Elige tu nuevo avatar</h2>
+      <div id="avatarGrid" class="avatar-grid"></div>
+      <button id="closeAvatarBtn" class="btn btn-primary btn-block">Listo</button>
+    </div>
+  </div>
+
+  <!-- MODAL DE VOTACIONES -->
   <div id="pollModal" class="modal-overlay" hidden>
     <div class="modal">
       <h2>✨ Nueva votación</h2>
@@ -217,7 +224,6 @@
         <h2>🎮 Minijuegos</h2>
         <button id="closeGameBtn" class="icon-btn" style="font-size: 1.5rem;">✖</button>
       </div>
-      <!-- Puedes cambiar la URL del src por otro juego que permita iframe -->
       <iframe src="https://gamezipper.com/2048/?utm_source=embed" class="game-iframe" title="Minijuego 2048" loading="lazy"></iframe>
     </div>
   </div>
