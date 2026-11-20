@@ -79,16 +79,10 @@ onAuthStateChanged(auth, async (user) => {
     loginModal.hidden = true;
     userProfile.hidden = false;
     
-    // 🛑 CONTROL ESTRICTO DE ADMINISTRADOR 🛑
     const userEmail = user.email ? user.email.trim().toLowerCase() : "";
-    console.log("Correo detectado por Firebase:", userEmail); // <-- Revisa la consola (F12) para ver qué correo lee
-    
     const isAdminEmail = (userEmail === 'crsph2@gmail.com');
     currentUser.isAdmin = isAdminEmail;
-    
-    if(adminBtn) {
-      adminBtn.style.display = isAdminEmail ? 'inline-flex' : 'none';
-    }
+    if(adminBtn) adminBtn.style.display = isAdminEmail ? 'inline-flex' : 'none';
 
     const userDocRef = doc(db, "users_data", user.uid);
     const userDoc = await getDoc(userDocRef);
@@ -106,18 +100,12 @@ onAuthStateChanged(auth, async (user) => {
       currentUser.mutedUntil = 0;
       currentUser.immunity = false;
       await setDoc(userDocRef, {
-        name: currentUser.name,
-        avatar: currentUser.avatar,
-        hp: currentUser.hp,
-        mutedUntil: currentUser.mutedUntil,
-        immunity: currentUser.immunity
+        name: currentUser.name, avatar: currentUser.avatar, hp: currentUser.hp, mutedUntil: currentUser.mutedUntil, immunity: currentUser.immunity
       });
     }
 
-    // Volvemos a forzar el estado por si el documento de la base de datos lo sobreescribió
     currentUser.isAdmin = isAdminEmail;
     if(adminBtn) adminBtn.style.display = isAdminEmail ? 'inline-flex' : 'none';
-
     updateProfileUI();
     
     onSnapshot(doc(db, "game_config", "main"), (docSnap) => {
@@ -228,7 +216,6 @@ function initRealtime() {
 }
 
 function initTools() {
-  // --- CUMPLEAÑOS ---
   const bdayCollection = collection(db, "birthdays");
   document.getElementById("bdayDate")?.addEventListener("input", (e) => {
     let val = e.target.value.replace(/\D/g, ''); 
@@ -266,11 +253,9 @@ function initTools() {
     });
     document.querySelectorAll("#bdayList .btn-delete-small").forEach(btn => btn.onclick = async (e) => await deleteDoc(doc(db, "birthdays", e.target.dataset.id)));
   }, (error) => {
-    console.error("Error al cargar cumpleaños:", error);
-    document.getElementById("bdayList").innerHTML = "<li style='color:red; font-size:0.8rem;'>Error de conexión. Revisa las Reglas de Firebase.</li>";
+    document.getElementById("bdayList").innerHTML = "<li style='color:red; font-size:0.8rem;'>Error de conexión.</li>";
   });
 
-  // --- COMPRAS ---
   const purchaseCollection = collection(db, "water_logs");
   if(document.getElementById("purchaseDate")) document.getElementById("purchaseDate").valueAsDate = new Date();
   document.getElementById("purchaseForm")?.addEventListener("submit", async (e) => {
@@ -288,8 +273,7 @@ function initTools() {
       purchaseLog.innerHTML += `<div class="purchase-item"><div class="purchase-item-details"><span class="purchase-name">${d.name}</span><span class="purchase-thing">🛒 ${d.item || "Agua"}</span><span class="purchase-date">📅 ${fDate}</span></div><button class="btn-delete-small" onclick="deletePurchase('${doc.id}')">🗑️</button></div>`;
     });
   }, (error) => {
-    console.error("Error al cargar compras:", error);
-    document.getElementById("purchaseLog").innerHTML = "<p style='color:red; font-size:0.8rem;'>Error de conexión. Revisa las Reglas de Firebase.</p>";
+    document.getElementById("purchaseLog").innerHTML = "<p style='color:red; font-size:0.8rem;'>Error de conexión.</p>";
   });
 }
 
@@ -297,10 +281,11 @@ window.deletePurchase = async (id) => { if(confirm("¿Eliminar registro?")) awai
 
 
 // ============================================================
-//  AMIGO SECRETO
+//  AMIGO SECRETO (CON BOTÓN DE PARTICIPAR EXPLÍCITO)
 // ============================================================
 let ssDrawn = false;
 let mySSList = [];
+let hasJoinedSS = false;
 
 function initSecretSanta() {
   if(!ssContent) return;
@@ -310,16 +295,20 @@ function initSecretSanta() {
     else ssDrawn = false;
     renderSS();
   }, (error) => { 
-    console.error("Error SS Config:", error); 
-    ssContent.innerHTML = `<div class="ss-card"><p style="color:var(--danger);">Error: Debes actualizar las Reglas de Firebase para usar el Amigo Secreto.</p></div>`;
+    ssContent.innerHTML = `<div class="ss-card"><p style="color:var(--danger);">Error de conexión.</p></div>`;
   });
   
   onSnapshot(doc(db, "ss_lists", currentUser.uid), (docSnap) => {
-    if(docSnap.exists() && docSnap.data().gifts) mySSList = docSnap.data().gifts;
-    else mySSList = [];
+    if(docSnap.exists()) {
+      const data = docSnap.data();
+      hasJoinedSS = data.joined || false;
+      mySSList = data.gifts || [];
+    } else {
+      hasJoinedSS = false;
+      mySSList = [];
+    }
     renderSS();
   }, (error) => { 
-    console.error("Error SS List:", error); 
     mySSList = [];
     renderSS(); 
   });
@@ -327,7 +316,6 @@ function initSecretSanta() {
   onSnapshot(doc(db, "ss_results", currentUser.uid), (docSnap) => {
     renderSS(docSnap.exists() ? docSnap.data() : null);
   }, (error) => { 
-    console.error("Error SS Result:", error); 
     renderSS(null);
   });
 }
@@ -361,6 +349,22 @@ async function renderSS(myResult = null) {
       return;
     }
 
+    // Si el sorteo NO se ha hecho, pero el usuario NO se ha unido:
+    if (!hasJoinedSS) {
+       ssContent.innerHTML = `
+        <div class="ss-card" style="padding: 40px 20px;">
+          <h3>¿Quieres participar?</h3>
+          <p style="font-size: 0.9rem; margin-bottom: 20px; color: var(--text-dim);">Únete al Amigo Secreto para que el sistema te asigne a alguien y puedas poner tu lista de regalos.</p>
+          <button id="joinSSBtn" class="btn btn-primary" style="padding: 15px 30px; font-size: 1.1rem;">🎁 Unirme al Amigo Secreto</button>
+        </div>
+       `;
+       document.getElementById("joinSSBtn")?.addEventListener("click", async () => {
+         await setDoc(doc(db, "ss_lists", currentUser.uid), { uid: currentUser.uid, name: currentUser.name, joined: true, gifts: [] });
+       });
+       return;
+    }
+
+    // Si ya se unió, mostrar lista de regalos
     let giftListHTML = mySSList.map((g, i) => `
       <li><span>${g}</span> <button class="btn-delete-small" onclick="removeGift(${i})">×</button></li>
     `).join("");
@@ -377,8 +381,10 @@ async function renderSS(myResult = null) {
 
     ssContent.innerHTML = `
       <div class="ss-card">
-        <h3>¡Participa en el Amigo Secreto!</h3>
+        <h3>¡Estás participando!</h3>
         <p style="font-size: 0.9rem; margin-bottom: 15px;">Límite de regalo: <strong>$${(gameConfig.moneyLimit || 10000).toLocaleString('es-CL')}</strong></p>
+        <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 15px;">Agrega ideas de regalos. Solo tu amigo secreto podrá ver esta lista.</p>
+        
         <form id="addGiftForm" class="inline-form">
           <input type="text" id="newGiftInput" placeholder="Ej: Taza de café, Chocolate..." maxlength="50" class="text-input" required />
           <button type="submit" class="btn btn-accent">Añadir</button>
@@ -395,19 +401,18 @@ async function renderSS(myResult = null) {
       const input = document.getElementById("newGiftInput");
       if(!input.value.trim()) return;
       mySSList.push(input.value.trim());
-      await setDoc(doc(db, "ss_lists", currentUser.uid), { uid: currentUser.uid, name: currentUser.name, gifts: mySSList });
+      await setDoc(doc(db, "ss_lists", currentUser.uid), { uid: currentUser.uid, name: currentUser.name, joined: true, gifts: mySSList });
     });
 
     document.getElementById("drawSSBtn")?.addEventListener("click", drawSecretSanta);
   } catch (err) {
-    console.error("Error al renderizar Amigo Secreto:", err);
-    ssContent.innerHTML = `<div class="ss-card"><p style="color:var(--danger);">Hubo un problema. Revisa las Reglas de Firebase.</p></div>`;
+    console.error(err);
   }
 }
 
 window.removeGift = async (index) => {
   mySSList.splice(index, 1);
-  await setDoc(doc(db, "ss_lists", currentUser.uid), { gifts: mySSList });
+  await setDoc(doc(db, "ss_lists", currentUser.uid), { gifts: mySSList }, { merge: true });
 };
 
 async function drawSecretSanta() {
@@ -416,7 +421,13 @@ async function drawSecretSanta() {
   try {
     const listsSnap = await getDocs(collection(db, "ss_lists"));
     let participants = [];
-    listsSnap.forEach(d => participants.push(d.data()));
+    listsSnap.forEach(d => {
+      const data = d.data();
+      // Solo entran al sorteo los que apretaron "Unirme" (o los antiguos que ya tenían regalos)
+      if (data.joined || (data.gifts && data.gifts.length > 0)) {
+        participants.push(data);
+      }
+    });
 
     if (participants.length < 3) return alert("Se necesitan al menos 3 personas para sortear.");
 
@@ -441,15 +452,15 @@ async function drawSecretSanta() {
     }
 
     await setDoc(doc(db, "ss_config", "main"), { drawn: true });
-    alert("¡Sorteo realizado! Cada persona ya puede ver a quién le regala.");
+    alert("¡Sorteo realizado!");
   } catch (error) {
     console.error(error);
-    alert("Error al realizar el sorteo. Verifica las reglas de Firebase.");
+    alert("Error al realizar el sorteo.");
   }
 }
 
 // ============================================================
-//  OFICINA VIRTUAL
+//  OFICINA VIRTUAL (CON HITBOX MEJORADO)
 // ============================================================
 const officeCanvas = document.getElementById("officeCanvas");
 const ctx = officeCanvas ? officeCanvas.getContext("2d") : null;
@@ -532,7 +543,8 @@ function initOffice() {
       const p = players[id];
       const dx = clickX - (p.x + PLAYER_SIZE/2);
       const dy = clickY - (p.y + PLAYER_SIZE/2);
-      if (Math.sqrt(dx*dx + dy*dy) < PLAYER_SIZE) clickedOnPlayer = id;
+      // Aumentamos un poco el radio de detección para hacerlo más fácil (antes era < PLAYER_SIZE)
+      if (Math.sqrt(dx*dx + dy*dy) < (PLAYER_SIZE * 0.8)) clickedOnPlayer = id;
     });
 
     if (clickedOnPlayer) {
@@ -740,9 +752,6 @@ function initChat() {
       chatMessages.innerHTML += `<div class="chat-message"><img class="msg-avatar" src="${m.avatar}"><div><div class="msg-name">${m.name}</div><div class="msg-text">${m.text}</div></div></div>`;
     });
     chatMessages.scrollTop = chatMessages.scrollHeight;
-  }, (error) => {
-    console.error("Error al cargar chat:", error);
-    document.getElementById("chatMessages").innerHTML = "<div style='color:red; padding:10px;'>Error de conexión al chat. Revisa las Reglas de Firebase.</div>";
   });
 }
 
@@ -798,9 +807,6 @@ function initPolls() {
       }).join("");
       pollsContainer.innerHTML += `<div class="poll-card"><button class="btn-delete-poll" onclick="delPoll('${id}')">🗑️</button><div class="poll-question">${p.question}</div><div class="poll-options">${optsHTML}</div></div>`;
     });
-  }, (error) => {
-    console.error("Error al cargar votaciones:", error);
-    document.getElementById("pollsContainer").innerHTML = "<p style='color:red;'>Error de conexión.</p>";
   });
 }
 
