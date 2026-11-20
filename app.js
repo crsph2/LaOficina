@@ -21,6 +21,11 @@ let appInitialized = false;
 const AVATAR_STYLES = ["pixel-art", "pixel-art-neutral", "bottts", "adventurer", "micah", "avataaars"]; 
 const AVATAR_SEEDS = ["Felix", "Aneka", "Milo", "Luna", "Leo", "Nina", "Oscar", "Zoe", "Max", "Chloe", "Cristopher", "Esteban", "Carla", "Javi", "Elias", "Lornis"];
 
+// Función vital que faltaba en el código anterior
+function avatarUrl(style, seed) {
+  return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=transparent`;
+}
+
 // DOM Genérico
 const userProfile = document.getElementById("userProfile");
 const headerAvatar = document.getElementById("headerAvatar");
@@ -232,8 +237,9 @@ async function renderSS(myResult = null) {
   if (ssDrawn) {
     if (myResult) {
       // Ya sorteado y tengo asignación
-      let giftsHTML = myResult.targetGifts.map(g => `<li>${g}</li>`).join("");
-      if(myResult.targetGifts.length === 0) giftsHTML = "<li>No puso ideas de regalo 😢</li>";
+      const gifts = myResult.targetGifts || [];
+      let giftsHTML = gifts.map(g => `<li>${g}</li>`).join("");
+      if(gifts.length === 0) giftsHTML = "<li>No puso ideas de regalo 😢</li>";
       
       ssContent.innerHTML = `
         <div class="ss-card">
@@ -590,7 +596,7 @@ function drawPlayer(x, y, avatarUrl, name, bubbleText, bubbleTime, hp = 100, mut
 }
 
 // ============================================================
-//  CONTADORES, CUMPLEAÑOS Y COMPRAS (Mismo código anterior)
+//  CONTADORES, CUMPLEAÑOS Y COMPRAS 
 // ============================================================
 function updateCountdowns() {
   const now = new Date();
