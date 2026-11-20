@@ -162,17 +162,33 @@
 
   <!-- MODALES -->
   <div id="loginModal" class="modal-overlay" hidden>
-    <div class="modal">
-      <h2>👋 ¡Bienvenido/a!</h2>
-      <p>Elige tu nombre y un avatar para entrar a la oficina.</p>
-      <label class="field-label">Tu nombre</label>
-      <input id="nameInput" type="text" placeholder="Ej: Ana, Carlos..." maxlength="20" class="text-input" />
-      <label class="field-label">Elige tu avatar</label>
-      <div id="avatarGrid" class="avatar-grid"></div>
-      <button id="enterBtn" type="button" class="btn btn-primary btn-block">Entrar a la oficina</button>
+  <div class="modal">
+    <h2>👋 ¡Bienvenido/a!</h2>
+    <p>Inicia sesión para entrar a la oficina.</p>
+    
+    <!-- Formulario de Email/Password -->
+    <label class="field-label">Correo electrónico</label>
+    <input id="emailInput" type="email" placeholder="tu@correo.com" class="text-input" />
+    
+    <label class="field-label">Contraseña</label>
+    <input id="passwordInput" type="password" placeholder="••••••••" class="text-input" />
+    
+    <div style="display: flex; gap: 10px; margin-top: 20px;">
+      <button id="loginEmailBtn" class="btn btn-primary" style="flex: 1;">Iniciar Sesión</button>
+      <button id="registerEmailBtn" class="btn btn-accent" style="flex: 1;">Registrarse</button>
     </div>
-  </div>
 
+    <div style="text-align: center; margin: 20px 0; color: var(--text-dim);">— O —</div>
+
+    <!-- Botón de Google -->
+    <button id="googleLoginBtn" class="btn btn-ghost" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid var(--border);">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style="width: 20px; height: 20px;" />
+      Continuar con Google
+    </button>
+
+    <button id="closeLoginModalBtn" class="btn btn-ghost" style="width: 100%; margin-top: 10px;">Cancelar</button>
+  </div>
+</div>
   <div id="pollModal" class="modal-overlay" hidden>
     <div class="modal">
       <h2>✨ Nueva votación</h2>
