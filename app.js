@@ -60,31 +60,29 @@ let gameConfig = { muteDuration: 60, hpRegen: 1, moneyLimit: 10000 };
 // ============================================================
 //  AUTENTICACIÓN Y PERFIL
 // ============================================================
-document.getElementById("googleLoginBtn").addEventListener("click", async () => {
+document.getElementById("googleLoginBtn")?.addEventListener("click", async () => {
   try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (e) { alert(e.message); }
 });
-document.getElementById("loginEmailBtn").addEventListener("click", async () => {
+document.getElementById("loginEmailBtn")?.addEventListener("click", async () => {
   const e = document.getElementById("emailInput").value, p = document.getElementById("passwordInput").value;
   if(!e || !p) return alert("Completa los campos");
   try { await signInWithEmailAndPassword(auth, e, p); } catch (err) { alert(err.message); }
 });
-document.getElementById("registerEmailBtn").addEventListener("click", async () => {
+document.getElementById("registerEmailBtn")?.addEventListener("click", async () => {
   const e = document.getElementById("emailInput").value, p = document.getElementById("passwordInput").value;
   if(!e || !p) return alert("Completa los campos");
   try { await createUserWithEmailAndPassword(auth, e, p); } catch (err) { alert(err.message); }
 });
-logoutBtn.addEventListener("click", () => { if(confirm("¿Salir?")) { signOut(auth); window.location.reload(); } });
+logoutBtn?.addEventListener("click", () => { if(confirm("¿Salir?")) { signOut(auth); window.location.reload(); } });
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     loginModal.hidden = true;
     userProfile.hidden = false;
     
-    // Verificar si es admin
     currentUser.isAdmin = (user.email === 'crsph2@gmail.com');
     if(currentUser.isAdmin) adminBtn.hidden = false;
 
-    // Cargar datos guardados o crear nuevos
     const userDocRef = doc(db, "users_data", user.uid);
     const userDoc = await getDoc(userDocRef);
     
@@ -105,16 +103,15 @@ onAuthStateChanged(auth, async (user) => {
 
     updateProfileUI();
     
-    // Cargar Configuración global (Mezclando valores seguros)
     onSnapshot(doc(db, "game_config", "main"), (docSnap) => {
       if(docSnap.exists()) {
-        gameConfig = { ...gameConfig, ...docSnap.data() }; // Evita undefined
+        gameConfig = { ...gameConfig, ...docSnap.data() };
         if(adminMuteTime) adminMuteTime.value = gameConfig.muteDuration;
         if(adminHpRegen) adminHpRegen.value = gameConfig.hpRegen;
         if(adminMoneyLimit) adminMoneyLimit.value = gameConfig.moneyLimit;
         if(ssLimitDisplay) ssLimitDisplay.textContent = `Límite: $${(gameConfig.moneyLimit || 10000).toLocaleString('es-CL')}`;
       } else if (currentUser.isAdmin) {
-        setDoc(doc(db, "game_config", "main"), gameConfig); // Crear default
+        setDoc(doc(db, "game_config", "main"), gameConfig);
       }
     });
 
@@ -135,7 +132,6 @@ function updateProfileUI() {
   if(headerName) headerName.textContent = currentUser.name;
 }
 
-// Editar Perfil (Nombre + Avatar)
 document.getElementById("changeAvatarBtn")?.addEventListener("click", () => {
   editNameInput.value = currentUser.name;
   buildAvatarPicker();
@@ -145,11 +141,10 @@ document.getElementById("changeAvatarBtn")?.addEventListener("click", () => {
 saveProfileBtn?.addEventListener("click", async () => {
   const newName = editNameInput.value.trim();
   if(!newName) return alert("El nombre no puede estar vacío");
-  
   currentUser.name = newName;
   await updateDoc(doc(db, "users_data", currentUser.uid), { name: newName, avatar: currentUser.avatar });
   updateProfileUI();
-  savePosition(); // Actualizar mapa
+  savePosition();
   profileModal.hidden = true;
 });
 
@@ -163,14 +158,13 @@ function buildAvatarPicker() {
       img.src = url;
       img.className = "avatar-option";
       if(currentUser.avatar === url) img.classList.add("selected");
-      
       img.addEventListener("click", () => {
         document.querySelectorAll(".avatar-option").forEach((el) => el.classList.remove("selected"));
         img.classList.add("selected");
         currentUser.avatar = url;
         if(headerAvatar) headerAvatar.src = url;
         updateDoc(doc(db, "users_data", currentUser.uid), { avatar: url });
-        savePosition(); // Actualizar mapa
+        savePosition();
       });
       avatarGrid.appendChild(img);
     });
@@ -214,82 +208,89 @@ function initSecretSanta() {
   onSnapshot(doc(db, "ss_config", "main"), (docSnap) => {
     if(docSnap.exists()) ssDrawn = docSnap.data().drawn;
     renderSS();
-  });
+  }, (error) => { console.error("Error SS Config:", error); renderSS(); });
+  
   onSnapshot(doc(db, "ss_lists", currentUser.uid), (docSnap) => {
     if(docSnap.exists()) mySSList = docSnap.data().gifts || [];
     else mySSList = [];
     renderSS();
-  });
+  }, (error) => { console.error("Error SS List:", error); renderSS(); });
+  
   onSnapshot(doc(db, "ss_results", currentUser.uid), (docSnap) => {
     renderSS(docSnap.exists() ? docSnap.data() : null);
-  });
+  }, (error) => { console.error("Error SS Result:", error); });
 }
 
 async function renderSS(myResult = null) {
   if(!ssContent) return;
-  ssContent.innerHTML = "";
+  try {
+    ssContent.innerHTML = "";
 
-  if (ssDrawn) {
-    if (myResult) {
-      const gifts = myResult.targetGifts || [];
-      let giftsHTML = gifts.map(g => `<li>${g}</li>`).join("");
-      if(gifts.length === 0) giftsHTML = "<li>No puso ideas de regalo 😢</li>";
-      
-      ssContent.innerHTML = `
-        <div class="ss-card">
-          <h3>🎅 Te toca regalar a:</h3>
-          <p style="font-size: 1.5rem; font-weight: 800; color: var(--success); margin: 10px 0;">${myResult.targetName}</p>
-          <p style="font-size: 0.9rem; color: var(--text-dim);">Límite sugerido: $${(gameConfig.moneyLimit || 10000).toLocaleString('es-CL')}</p>
-          <div style="margin-top: 20px; text-align: left;">
-            <h4 style="color: var(--accent); margin-bottom: 8px;">Lista de ideas de regalo:</h4>
-            <ul class="ss-gift-list">${giftsHTML}</ul>
+    if (ssDrawn) {
+      if (myResult) {
+        const gifts = myResult.targetGifts || [];
+        let giftsHTML = gifts.map(g => `<li>${g}</li>`).join("");
+        if(gifts.length === 0) giftsHTML = "<li>No puso ideas de regalo 😢</li>";
+        
+        ssContent.innerHTML = `
+          <div class="ss-card">
+            <h3>🎅 Te toca regalar a:</h3>
+            <p style="font-size: 1.5rem; font-weight: 800; color: var(--success); margin: 10px 0;">${myResult.targetName}</p>
+            <p style="font-size: 0.9rem; color: var(--text-dim);">Límite sugerido: $${(gameConfig.moneyLimit || 10000).toLocaleString('es-CL')}</p>
+            <div style="margin-top: 20px; text-align: left;">
+              <h4 style="color: var(--accent); margin-bottom: 8px;">Lista de ideas de regalo:</h4>
+              <ul class="ss-gift-list">${giftsHTML}</ul>
+            </div>
           </div>
+        `;
+      } else {
+        ssContent.innerHTML = `<div class="ss-card"><p>El sorteo ya se realizó. No participaste esta vez.</p></div>`;
+      }
+      return;
+    }
+
+    let giftListHTML = mySSList.map((g, i) => `
+      <li><span>${g}</span> <button class="btn-delete-small" onclick="removeGift(${i})">×</button></li>
+    `).join("");
+
+    let adminControls = "";
+    if (currentUser.isAdmin) {
+      adminControls = `
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px dashed var(--border);">
+          <p style="color: var(--danger); font-weight: bold; margin-bottom: 10px;">⚠️ Zona Admin</p>
+          <button id="drawSSBtn" class="btn btn-primary" style="width: 100%;">🎲 Realizar Sorteo Ahora</button>
         </div>
       `;
-    } else {
-      ssContent.innerHTML = `<div class="ss-card"><p>El sorteo ya se realizó. No participaste esta vez.</p></div>`;
     }
-    return;
-  }
 
-  let giftListHTML = mySSList.map((g, i) => `
-    <li><span>${g}</span> <button class="btn-delete-small" onclick="removeGift(${i})">×</button></li>
-  `).join("");
-
-  let adminControls = "";
-  if (currentUser.isAdmin) {
-    adminControls = `
-      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px dashed var(--border);">
-        <p style="color: var(--danger); font-weight: bold; margin-bottom: 10px;">⚠️ Zona Admin</p>
-        <button id="drawSSBtn" class="btn btn-primary" style="width: 100%;">🎲 Realizar Sorteo Ahora</button>
+    ssContent.innerHTML = `
+      <div class="ss-card">
+        <h3>¡Participa en el Amigo Secreto!</h3>
+        <p style="font-size: 0.9rem; margin-bottom: 15px;">Límite de regalo: <strong>$${(gameConfig.moneyLimit || 10000).toLocaleString('es-CL')}</strong></p>
+        <form id="addGiftForm" class="inline-form">
+          <input type="text" id="newGiftInput" placeholder="Ej: Taza de café, Chocolate..." maxlength="50" class="text-input" required />
+          <button type="submit" class="btn btn-accent">Añadir</button>
+        </form>
+        <ul class="ss-gift-list" style="margin-top: 15px;">
+          ${giftListHTML || '<li style="color:var(--text-dim); justify-content:center;">Aún no has agregado regalos.</li>'}
+        </ul>
+        ${adminControls}
       </div>
     `;
+
+    document.getElementById("addGiftForm")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const input = document.getElementById("newGiftInput");
+      if(!input.value.trim()) return;
+      mySSList.push(input.value.trim());
+      await setDoc(doc(db, "ss_lists", currentUser.uid), { uid: currentUser.uid, name: currentUser.name, gifts: mySSList });
+    });
+
+    document.getElementById("drawSSBtn")?.addEventListener("click", drawSecretSanta);
+  } catch (err) {
+    console.error("Error al renderizar Amigo Secreto:", err);
+    ssContent.innerHTML = `<div class="ss-card"><p style="color:var(--danger);">Hubo un problema de conexión con el Amigo Secreto. Revisa los permisos de Firebase o recarga la página.</p></div>`;
   }
-
-  ssContent.innerHTML = `
-    <div class="ss-card">
-      <h3>¡Participa en el Amigo Secreto!</h3>
-      <p style="font-size: 0.9rem; margin-bottom: 15px;">Límite de regalo: <strong>$${(gameConfig.moneyLimit || 10000).toLocaleString('es-CL')}</strong></p>
-      <form id="addGiftForm" class="inline-form">
-        <input type="text" id="newGiftInput" placeholder="Ej: Taza de café, Chocolate..." maxlength="50" class="text-input" required />
-        <button type="submit" class="btn btn-accent">Añadir</button>
-      </form>
-      <ul class="ss-gift-list" style="margin-top: 15px;">
-        ${giftListHTML || '<li style="color:var(--text-dim); justify-content:center;">Aún no has agregado regalos.</li>'}
-      </ul>
-      ${adminControls}
-    </div>
-  `;
-
-  document.getElementById("addGiftForm")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const input = document.getElementById("newGiftInput");
-    if(!input.value.trim()) return;
-    mySSList.push(input.value.trim());
-    await setDoc(doc(db, "ss_lists", currentUser.uid), { uid: currentUser.uid, name: currentUser.name, gifts: mySSList });
-  });
-
-  document.getElementById("drawSSBtn")?.addEventListener("click", drawSecretSanta);
 }
 
 window.removeGift = async (index) => {
@@ -359,8 +360,10 @@ function getAvatarImage(url) {
 function initOffice() {
   if(!officeCanvas) return;
   
-  // SOLUCIÓN: Esperar medio segundo a que el HTML se dibuje antes de medir el Canvas
-  setTimeout(resizeCanvas, 500);
+  // SOLUCIÓN: Esperar a que el navegador pinte el layout antes de medir
+  requestAnimationFrame(() => {
+    setTimeout(resizeCanvas, 100);
+  });
   window.addEventListener("resize", resizeCanvas);
 
   onSnapshot(positionsCollection, (snapshot) => {
@@ -377,7 +380,6 @@ function initOffice() {
     });
   });
 
-  // Regeneración de Vida
   setInterval(() => {
     if (currentUser.hp < 100) {
       currentUser.hp = Math.min(100, currentUser.hp + gameConfig.hpRegen);
@@ -436,7 +438,7 @@ function initOffice() {
 
 function resizeCanvas() {
   if(!officeCanvas || !canvasContainer) return;
-  officeCanvas.width = canvasContainer.clientWidth || 800; // Fallback por si acaso
+  officeCanvas.width = canvasContainer.clientWidth || 800;
   officeCanvas.height = canvasContainer.clientHeight || 300;
 }
 
