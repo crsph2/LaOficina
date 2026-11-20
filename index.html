@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>La Oficina · Vota, Chatea y Juega</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="manifest" href="manifest.json" />
@@ -30,10 +30,11 @@
       <span class="logo-text">La <span>Oficina</span></span>
     </div>
     <div class="topbar-right">
+      <button id="settingsBtn" type="button" class="btn btn-settings" aria-label="Ajustes">🎄 Ajustes</button>
       <button id="gamesBtn" type="button" class="btn btn-games">🎮 Minijuegos</button>
       <button id="adminBtn" type="button" class="btn btn-admin" style="display: none;">⚙️ Admin</button>
       <a href="https://crsph2.github.io/casino/" target="_blank" rel="noopener noreferrer" class="btn btn-almuerzos">🍽️ Almuerzos</a>
-      
+
       <div class="user-profile" id="userProfile" hidden>
         <img id="headerAvatar" class="avatar" alt="Avatar" />
         <span id="headerName" class="user-name"></span>
@@ -48,12 +49,20 @@
     <div class="office-header">
       <h2>🗺️ Oficina Virtual</h2>
       <div class="office-controls">
-        <p class="office-hint">Flechas para moverte, <strong>arrastra a un compañero</strong>. <strong>Espacio</strong> para golpear.</p>
-        <button id="suggestPauseBtn" type="button" class="btn btn-ghost btn-small" style="width: auto;">☕ Sugerir Pausa</button>
+        <p class="office-hint" id="grabHint">
+          <strong>ESPACIO</strong> (mantener) para agarrar · <strong>F</strong> para golpear
+        </p>
+        <button id="suggestPauseBtn" type="button" class="btn btn-ghost btn-small">☕ Sugerir Pausa</button>
       </div>
     </div>
     <div class="canvas-container" id="canvasContainer">
-      <canvas id="officeCanvas" tabindex="0"></canvas>
+      <canvas id="officeCanvas" tabindex="0" aria-label="Oficina virtual"></canvas>
+
+      <!-- Botones táctiles (solo móvil) -->
+      <div class="touch-actions" aria-hidden="true">
+        <button id="attackTouchBtn" class="touch-action-btn attack" type="button" aria-label="Golpear">👊</button>
+        <button id="grabTouchBtn" class="touch-action-btn grab" type="button" aria-label="Agarrar (mantener)">✋</button>
+      </div>
     </div>
   </section>
 
@@ -94,12 +103,12 @@
           </form>
           <ul id="bdayList" class="tool-list"></ul>
         </div>
-        <div class="panel tool-panel" style="grid-column: span 2;">
+        <div class="panel tool-panel span-2">
           <h2>🛒 Registro de Compras</h2>
-          <form id="purchaseForm" class="inline-form" style="flex-wrap: wrap;">
-            <input type="text" id="buyerName" placeholder="¿Quién compró?" required class="text-input" style="flex: 1 1 120px;" />
-            <input type="text" id="itemBought" placeholder="¿Qué compró?" required class="text-input" style="flex: 2 1 150px;" />
-            <input type="date" id="purchaseDate" required class="text-input" style="flex: 1 1 130px;" />
+          <form id="purchaseForm" class="inline-form wrap">
+            <input type="text" id="buyerName" placeholder="¿Quién compró?" required class="text-input grow-1" />
+            <input type="text" id="itemBought" placeholder="¿Qué compró?" required class="text-input grow-2" />
+            <input type="date" id="purchaseDate" required class="text-input grow-1" />
             <button type="submit" class="btn btn-primary btn-small">Registrar</button>
           </form>
           <div id="purchaseLog" class="purchase-log-display"></div>
@@ -138,7 +147,7 @@
   <div id="chatWidget" class="chat-widget minimized">
     <div class="chat-header" id="chatHeader">
       <div class="chat-title"><span class="online-dot"></span><span>Chat de Oficina</span></div>
-      <button id="toggleChatBtn" class="chat-toggle-btn">▲</button>
+      <button id="toggleChatBtn" class="chat-toggle-btn" type="button" aria-label="Expandir chat">▲</button>
     </div>
     <div class="chat-body">
       <div id="chatMessages" class="chat-messages"></div>
@@ -152,20 +161,20 @@
   <!-- MODALES -->
   <!-- Login -->
   <div id="loginModal" class="modal-overlay" hidden>
-    <div class="modal">
-      <h2>👋 ¡Bienvenido/a!</h2>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+      <h2 id="loginTitle">👋 ¡Bienvenido/a!</h2>
       <p>Inicia sesión para entrar a la oficina.</p>
       <label class="field-label">Correo electrónico</label>
-      <input id="emailInput" type="email" placeholder="tu@correo.com" class="text-input" />
+      <input id="emailInput" type="email" placeholder="tu@correo.com" class="text-input" autocomplete="email" />
       <label class="field-label">Contraseña</label>
-      <input id="passwordInput" type="password" placeholder="••••••••" class="text-input" />
-      <div style="display: flex; gap: 10px; margin-top: 20px;">
-        <button id="loginEmailBtn" class="btn btn-primary" style="flex: 1;">Iniciar Sesión</button>
-        <button id="registerEmailBtn" class="btn btn-accent" style="flex: 1;">Registrarse</button>
+      <input id="passwordInput" type="password" placeholder="••••••••" class="text-input" autocomplete="current-password" />
+      <div class="modal-row">
+        <button id="loginEmailBtn" class="btn btn-primary flex-1">Iniciar Sesión</button>
+        <button id="registerEmailBtn" class="btn btn-accent flex-1">Registrarse</button>
       </div>
-      <div style="text-align: center; margin: 20px 0; color: var(--text-dim);">— O —</div>
-      <button id="googleLoginBtn" class="btn btn-ghost" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid var(--border);">
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style="width: 20px; height: 20px;" />
+      <div class="modal-divider">— O —</div>
+      <button id="googleLoginBtn" class="btn btn-ghost btn-block-google">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="google-icon" />
         Continuar con Google
       </button>
     </div>
@@ -173,7 +182,7 @@
 
   <!-- Editar Perfil -->
   <div id="profileModal" class="modal-overlay" hidden>
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true">
       <h2>✏️ Editar Perfil</h2>
       <label class="field-label">Tu Nombre</label>
       <input id="editNameInput" type="text" maxlength="20" class="text-input" />
@@ -183,9 +192,37 @@
     </div>
   </div>
 
+  <!-- Ajustes (agarrar) -->
+  <div id="settingsModal" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <h2 id="settingsTitle">🎄 Ajustes de Agarre</h2>
+      <p class="modal-help">Configura cómo quieres agarrar a tus compañeros.</p>
+
+      <label class="field-label" for="grabKeySelect">Tecla de agarrar</label>
+      <select id="grabKeySelect" class="text-input"></select>
+
+      <fieldset class="radio-group">
+        <legend class="field-label">Modo</legend>
+        <label class="radio-option">
+          <input type="radio" name="grabMode" id="grabModeHold" value="hold" />
+          <span><strong>Mantener</strong> — suelta para liberar</span>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="grabMode" id="grabModeToggle" value="toggle" />
+          <span><strong>Alternar</strong> — pulsa para agarrar / soltar</span>
+        </label>
+      </fieldset>
+
+      <label class="field-label" for="grabMinHold">Sensibilidad (mantener al menos): <span id="grabMinHoldLabel">120 ms</span></label>
+      <input type="range" id="grabMinHold" min="50" max="500" step="10" value="120" class="range-input" />
+
+      <button id="saveSettingsBtn" class="btn btn-primary btn-block">Guardar</button>
+    </div>
+  </div>
+
   <!-- Panel de Admin -->
   <div id="adminModal" class="modal-overlay" hidden>
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true">
       <h2>⚙️ Panel de Administrador</h2>
       <label class="field-label">Tiempo de Silencio (Segundos por KO)</label>
       <input id="adminMuteTime" type="number" class="text-input" placeholder="Ej: 60" />
@@ -201,7 +238,7 @@
 
   <!-- Votaciones -->
   <div id="pollModal" class="modal-overlay" hidden>
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true">
       <h2>✨ Nueva votación</h2>
       <label class="field-label">Pregunta</label>
       <input id="pollQuestion" type="text" maxlength="120" class="text-input" />
@@ -217,7 +254,7 @@
 
   <!-- Minijuegos -->
   <div id="gameModal" class="modal-overlay" hidden>
-    <div class="modal game-modal-content">
+    <div class="modal game-modal-content" role="dialog" aria-modal="true">
       <div class="game-modal-header">
         <h2>🎮 Minijuegos</h2>
         <button id="closeGameBtn" class="icon-btn" style="font-size: 1.5rem;">✖</button>
