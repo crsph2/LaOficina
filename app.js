@@ -1,31 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  initializeFirestore, 
-  collection,
-  addDoc,
-  onSnapshot,
-  query,
-  orderBy,
-  limit,
-  serverTimestamp,
-  doc,
-  updateDoc,
-  increment,
-  deleteDoc,
-  setDoc,
-  getDocs
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-// IMPORTACIONES DE AUTENTICACIÓN
-import { 
-  getAuth, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  onAuthStateChanged,
-  signOut 
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { initializeFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, doc, updateDoc, increment, deleteDoc, setDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDJE3mYAvvOyrmL2riktXB-mdt0iH2iN5k",
@@ -33,180 +8,145 @@ const firebaseConfig = {
   projectId: "laoficina-81e4a",
   storageBucket: "laoficina-81e4a.firebasestorage.app",
   messagingSenderId: "733303320739",
-  appId: "1:733303320739:web:b24a466bcad169c21c4f16",
-  measurementId: "G-ER0ZYJ270J"
+  appId: "1:733303320739:web:b24a466bcad169c21c4f16"
 };
 
 const app = initializeApp(firebaseConfig);
-const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-  useFetchStreams: false,
-});
+const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 const auth = getAuth(app);
 
-let currentUser = { uid: "", name: "", avatar: "", hp: 100, mutedUntil: 0 };
-let appInitialized = false; // Para evitar doble inicialización
+let currentUser = { uid: "", email: "", name: "", avatar: "", hp: 100, mutedUntil: 0, isAdmin: false, immunity: false };
+let appInitialized = false;
 
 const AVATAR_STYLES = ["pixel-art", "pixel-art-neutral", "bottts", "adventurer", "micah", "avataaars"]; 
 const AVATAR_SEEDS = ["Felix", "Aneka", "Milo", "Luna", "Leo", "Nina", "Oscar", "Zoe", "Max", "Chloe", "Cristopher", "Esteban", "Carla", "Javi", "Elias", "Lornis"];
 
-// DOM
+// DOM Genérico
 const userProfile = document.getElementById("userProfile");
 const headerAvatar = document.getElementById("headerAvatar");
 const headerName = document.getElementById("headerName");
-const changeAvatarBtn = document.getElementById("changeAvatarBtn");
 const logoutBtn = document.getElementById("logoutBtn");
-
-// DOM LOGIN
 const loginModal = document.getElementById("loginModal");
-const emailInput = document.getElementById("emailInput");
-const passwordInput = document.getElementById("passwordInput");
-const loginEmailBtn = document.getElementById("loginEmailBtn");
-const registerEmailBtn = document.getElementById("registerEmailBtn");
-const googleLoginBtn = document.getElementById("googleLoginBtn");
-
-// DOM AVATAR MODAL
-const avatarModal = document.getElementById("avatarModal");
-const avatarGrid = document.getElementById("avatarGrid");
-const closeAvatarBtn = document.getElementById("closeAvatarBtn");
-
-// Resto del DOM
-const pollsContainer = document.getElementById("pollsContainer");
-const newPollBtn = document.getElementById("newPollBtn");
-const pollModal = document.getElementById("pollModal");
-const pollQuestion = document.getElementById("pollQuestion");
-const pollOptionsContainer = document.getElementById("pollOptionsContainer");
-const addOptionBtn = document.getElementById("addOptionBtn");
-const createPollBtn = document.getElementById("createPollBtn");
-const isYesNoPoll = document.getElementById("isYesNoPoll");
-const pollOptionsWrapper = document.getElementById("pollOptionsWrapper");
 const chatMessages = document.getElementById("chatMessages");
-const chatForm = document.getElementById("chatForm");
 const chatInput = document.getElementById("chatInput");
-const officeCanvas = document.getElementById("officeCanvas");
-const canvasContainer = document.getElementById("canvasContainer");
-const pauseToast = document.getElementById("pauseToast");
-const pauseToastText = document.getElementById("pauseToastText");
-const closePauseBtn = document.getElementById("closePauseBtn");
-const suggestPauseBtn = document.getElementById("suggestPauseBtn");
-
-const bdayForm = document.getElementById("bdayForm");
-const bdayName = document.getElementById("bdayName");
-const bdayDate = document.getElementById("bdayDate");
-const bdayList = document.getElementById("bdayList");
-
-const purchaseForm = document.getElementById("purchaseForm");
-const buyerName = document.getElementById("buyerName");
-const itemBought = document.getElementById("itemBought");
-const purchaseDate = document.getElementById("purchaseDate");
-const purchaseLog = document.getElementById("purchaseLog");
-
+const chatForm = document.getElementById("chatForm");
 const chatWidget = document.getElementById("chatWidget");
 const chatHeader = document.getElementById("chatHeader");
-const tabBtns = document.querySelectorAll(".tab-btn");
-const tabContents = document.querySelectorAll(".tab-content");
 
-const gamesBtn = document.getElementById("gamesBtn");
-const gameModal = document.getElementById("gameModal");
-const closeGameBtn = document.getElementById("closeGameBtn");
+// DOM Perfil y Admin
+const profileModal = document.getElementById("profileModal");
+const editNameInput = document.getElementById("editNameInput");
+const avatarGrid = document.getElementById("avatarGrid");
+const saveProfileBtn = document.getElementById("saveProfileBtn");
+const adminBtn = document.getElementById("adminBtn");
+const adminModal = document.getElementById("adminModal");
+const adminImmunityBtn = document.getElementById("adminImmunityBtn");
+const saveAdminConfigBtn = document.getElementById("saveAdminConfigBtn");
+const adminMuteTime = document.getElementById("adminMuteTime");
+const adminHpRegen = document.getElementById("adminHpRegen");
+const adminMoneyLimit = document.getElementById("adminMoneyLimit");
+
+// DOM Amigo Secreto
+const ssContent = document.getElementById("ssContent");
+const ssLimitDisplay = document.getElementById("ssLimitDisplay");
+
+// Configuración global del juego
+let gameConfig = { muteDuration: 60, hpRegen: 1, moneyLimit: 10000 };
 
 // ============================================================
-//  LÓGICA DE AUTENTICACIÓN
+//  AUTENTICACIÓN Y PERFIL
 // ============================================================
-googleLoginBtn.addEventListener("click", async () => {
-  const provider = new GoogleAuthProvider();
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (error) {
-    console.error(error);
-    alert("Error al conectar con Google: " + error.message);
-  }
+document.getElementById("googleLoginBtn").addEventListener("click", async () => {
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (e) { alert(e.message); }
 });
-
-loginEmailBtn.addEventListener("click", async () => {
-  const email = emailInput.value.trim();
-  const pass = passwordInput.value;
-  if(!email || !pass) return alert("Completa correo y contraseña.");
-  try {
-    await signInWithEmailAndPassword(auth, email, pass);
-  } catch (error) {
-    alert("Error al iniciar sesión: " + error.message);
-  }
+document.getElementById("loginEmailBtn").addEventListener("click", async () => {
+  const e = document.getElementById("emailInput").value, p = document.getElementById("passwordInput").value;
+  if(!e || !p) return alert("Completa los campos");
+  try { await signInWithEmailAndPassword(auth, e, p); } catch (err) { alert(err.message); }
 });
-
-registerEmailBtn.addEventListener("click", async () => {
-  const email = emailInput.value.trim();
-  const pass = passwordInput.value;
-  if(!email || !pass) return alert("Completa correo y contraseña.");
-  if(pass.length < 6) return alert("La contraseña debe tener al menos 6 caracteres.");
-  try {
-    await createUserWithEmailAndPassword(auth, email, pass);
-    alert("¡Cuenta creada con éxito! Iniciando sesión...");
-  } catch (error) {
-    alert("Error al registrarse: " + error.message);
-  }
+document.getElementById("registerEmailBtn").addEventListener("click", async () => {
+  const e = document.getElementById("emailInput").value, p = document.getElementById("passwordInput").value;
+  if(!e || !p) return alert("Completa los campos");
+  try { await createUserWithEmailAndPassword(auth, e, p); } catch (err) { alert(err.message); }
 });
+logoutBtn.addEventListener("click", () => { if(confirm("¿Salir?")) { signOut(auth); window.location.reload(); } });
 
-logoutBtn.addEventListener("click", () => {
-  if(confirm("¿Seguro que quieres salir?")) {
-    signOut(auth);
-    window.location.reload(); // Recargar para limpiar estado
-  }
-});
-
-// Escuchar el estado del usuario
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
-    // Usuario logueado
     loginModal.hidden = true;
     userProfile.hidden = false;
+    
+    // Verificar si es admin
+    currentUser.isAdmin = (user.email === 'crsph2@gmail.com');
+    if(currentUser.isAdmin) adminBtn.hidden = false;
 
-    const saved = localStorage.getItem("officeLiveUser");
-    let savedData = saved ? JSON.parse(saved) : null;
-
-    // Si ya teníamos datos guardados y coinciden con el UID, los usamos
-    if (savedData && savedData.uid === user.uid) {
-      currentUser = savedData;
+    // Cargar datos guardados o crear nuevos
+    const userDocRef = doc(db, "users_data", user.uid);
+    const userDoc = await getDoc(userDocRef);
+    
+    if (userDoc.exists()) {
+      const data = userDoc.data();
+      currentUser = { ...currentUser, ...data, uid: user.uid, email: user.email };
+      if (currentUser.hp === undefined) currentUser.hp = 100;
     } else {
-      // Nuevo usuario o login desde otro dispositivo
       currentUser.uid = user.uid;
+      currentUser.email = user.email;
       currentUser.name = user.displayName || user.email.split('@')[0];
       currentUser.avatar = user.photoURL || avatarUrl('pixel-art', user.email);
       currentUser.hp = 100;
       currentUser.mutedUntil = 0;
-      localStorage.setItem("officeLiveUser", JSON.stringify(currentUser));
+      currentUser.immunity = false;
+      await setDoc(userDocRef, currentUser);
     }
 
     updateProfileUI();
+    
+    // Cargar Configuración global
+    onSnapshot(doc(db, "game_config", "main"), (docSnap) => {
+      if(docSnap.exists()) {
+        gameConfig = docSnap.data();
+        adminMuteTime.value = gameConfig.muteDuration;
+        adminHpRegen.value = gameConfig.hpRegen;
+        adminMoneyLimit.value = gameConfig.moneyLimit;
+        ssLimitDisplay.textContent = `Límite: $${gameConfig.moneyLimit.toLocaleString('es-CL')}`;
+      } else if (currentUser.isAdmin) {
+        setDoc(doc(db, "game_config", "main"), gameConfig); // Crear default
+      }
+    });
 
-    // Iniciar la app solo una vez para evitar duplicar listeners
     if (!appInitialized) {
       initRealtime();
       initOffice();
+      initSecretSanta();
       appInitialized = true;
     }
   } else {
-    // No logueado
     loginModal.hidden = false;
     userProfile.hidden = true;
   }
 });
 
-// ============================================================
-//  PERFIL Y AVATARES
-// ============================================================
 function updateProfileUI() {
   headerAvatar.src = currentUser.avatar;
   headerName.textContent = currentUser.name;
 }
 
-changeAvatarBtn.addEventListener("click", () => {
+// Editar Perfil (Nombre + Avatar)
+document.getElementById("changeAvatarBtn").addEventListener("click", () => {
+  editNameInput.value = currentUser.name;
   buildAvatarPicker();
-  avatarModal.hidden = false;
+  profileModal.hidden = false;
 });
 
-closeAvatarBtn.addEventListener("click", () => {
-  avatarModal.hidden = true;
+saveProfileBtn.addEventListener("click", async () => {
+  const newName = editNameInput.value.trim();
+  if(!newName) return alert("El nombre no puede estar vacío");
+  
+  currentUser.name = newName;
+  await updateDoc(doc(db, "users_data", currentUser.uid), { name: newName, avatar: currentUser.avatar });
+  updateProfileUI();
+  savePosition(); // Actualizar mapa
+  profileModal.hidden = true;
 });
 
 function buildAvatarPicker() {
@@ -217,16 +157,15 @@ function buildAvatarPicker() {
       const img = document.createElement("img");
       img.src = url;
       img.className = "avatar-option";
-      img.loading = "lazy";
+      if(currentUser.avatar === url) img.classList.add("selected");
+      
       img.addEventListener("click", () => {
         document.querySelectorAll(".avatar-option").forEach((el) => el.classList.remove("selected"));
         img.classList.add("selected");
-        
-        // Actualizar visualmente y guardar
         currentUser.avatar = url;
         headerAvatar.src = url;
-        localStorage.setItem("officeLiveUser", JSON.stringify(currentUser));
-        savePosition(); // Para que el cambio se refleje en el mapa
+        updateDoc(doc(db, "users_data", currentUser.uid), { avatar: url });
+        savePosition(); // Actualizar mapa
       });
       avatarGrid.appendChild(img);
     });
@@ -234,232 +173,191 @@ function buildAvatarPicker() {
 }
 
 // ============================================================
-//  LÓGICA DE PESTAÑAS, CHAT Y JUEGOS
+//  ADMINISTRACIÓN
 // ============================================================
-tabBtns.forEach(btn => {
-  btn.addEventListener("click", () => {
-    tabBtns.forEach(b => b.classList.remove("active"));
-    tabContents.forEach(c => c.classList.remove("active"));
-    btn.classList.add("active");
-    document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
-  });
+adminImmunityBtn.addEventListener("click", async () => {
+  currentUser.immunity = !currentUser.immunity;
+  adminImmunityBtn.textContent = `🛡️ Inmunidad: ${currentUser.immunity ? 'ON' : 'OFF'}`;
+  adminImmunityBtn.style.background = currentUser.immunity ? 'var(--success)' : 'var(--accent)';
+  await updateDoc(doc(db, "users_data", currentUser.uid), { immunity: currentUser.immunity });
 });
 
-chatHeader.addEventListener("click", () => {
-  if (chatWidget.classList.contains("minimized")) {
-    chatWidget.classList.remove("minimized");
-    chatWidget.classList.add("expanded");
-    setTimeout(() => { chatMessages.scrollTop = chatMessages.scrollHeight; }, 300);
-  } else {
-    chatWidget.classList.remove("expanded");
-    chatWidget.classList.add("minimized");
-  }
+saveAdminConfigBtn.addEventListener("click", async () => {
+  const config = {
+    muteDuration: parseInt(adminMuteTime.value) || 60,
+    hpRegen: parseFloat(adminHpRegen.value) || 1,
+    moneyLimit: parseInt(adminMoneyLimit.value) || 10000
+  };
+  await setDoc(doc(db, "game_config", "main"), config);
+  adminModal.hidden = true;
+  alert("Configuración guardada");
 });
 
-if(gamesBtn) gamesBtn.addEventListener("click", () => { gameModal.hidden = false; });
-if(closeGameBtn) closeGameBtn.addEventListener("click", () => { gameModal.hidden = true; });
-
-// Utilidades
-function avatarUrl(style, seed) {
-  return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=transparent`;
-}
-function formatTime(timestamp) {
-  if (!timestamp) return "ahora";
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  return date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
-}
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-// ============================================================
-//  CONTADORES, CUMPLEAÑOS Y COMPRAS
-// ============================================================
-function updateCountdowns() {
-  const now = new Date();
-  let targetYear = now.getFullYear();
-  let jan29 = new Date(targetYear, 0, 29);
-  while (jan29 < now || jan29.getDay() !== 5) {
-    targetYear++;
-    jan29 = new Date(targetYear, 0, 29);
-  }
-  const diffJan29 = jan29 - now;
-  const daysJan29 = Math.floor(diffJan29 / (1000 * 60 * 60 * 24));
-  const elJan29 = document.getElementById("cd-jan29");
-  if (elJan29) elJan29.innerText = `${daysJan29} días`;
-
-  const year = now.getFullYear();
-  const holidays = [
-    { name: "Año Nuevo", date: `${year}-01-01` },
-    { name: "Viernes Santo", date: `${year}-03-29` },
-    { name: "Día del Trabajo", date: `${year}-05-01` },
-    { name: "Día de las Glorias Navales", date: `${year}-05-21` },
-    { name: "Día Nacional de los Pueblos Indígenas", date: `${year}-06-20` },
-    { name: "San Pedro y San Pablo", date: `${year}-06-29` },
-    { name: "Día de la Independencia", date: `${year}-09-18` },
-    { name: "Día de las Glorias del Ejército", date: `${year}-09-19` },
-    { name: "Encuentro de Dos Mundos", date: `${year}-10-12` },
-    { name: "Día de las Iglesias Evangélicas", date: `${year}-10-31` },
-    { name: "Todos los Santos", date: `${year}-11-01` },
-    { name: "Inmaculada Concepción", date: `${year}-12-08` },
-    { name: "Navidad", date: `${year}-12-25` }
-  ];
-
-  let nextHoliday = null;
-  for (let h of holidays) {
-    let hDate = new Date(h.date + 'T00:00:00');
-    if (hDate > now) { nextHoliday = { name: h.name, date: hDate }; break; }
-  }
-  if (!nextHoliday) nextHoliday = { name: "Año Nuevo", date: new Date(year + 1, 0, 1) };
-
-  const diffHoliday = nextHoliday.date - now;
-  const daysHoliday = Math.ceil(diffHoliday / (1000 * 60 * 60 * 24));
-  const elHolName = document.getElementById("cd-holiday-name");
-  const elHolDays = document.getElementById("cd-holiday");
-  if (elHolName) elHolName.innerText = nextHoliday.name;
-  if (elHolDays) elHolDays.innerText = `${daysHoliday} días`;
-}
-setInterval(updateCountdowns, 60000);
-updateCountdowns();
-
-// --- CUMPLEAÑOS ---
-const bdayCollection = collection(db, "birthdays");
-if(bdayDate) {
-  bdayDate.addEventListener("input", (e) => {
-    let val = e.target.value.replace(/\D/g, ''); 
-    if (val.length > 2) val = val.substring(0, 2) + '/' + val.substring(2, 4);
-    e.target.value = val;
-  });
-}
-
-if(bdayForm) {
-  bdayForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const name = bdayName.value.trim();
-    const rawDate = bdayDate.value.trim(); 
-    if (!name || rawDate.length !== 5) return alert("Ingresa nombre y fecha DD/MM.");
-    const [day, month] = rawDate.split('/');
-    if (parseInt(day) < 1 || parseInt(day) > 31 || parseInt(month) < 1 || parseInt(month) > 12) return alert("Fecha inválida.");
-    
-    const dummyDate = `2000-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-    try {
-      await addDoc(bdayCollection, { name, date: dummyDate, creator: currentUser.name || "Anónimo" });
-      bdayForm.reset();
-    } catch (err) { alert("Error al guardar"); }
-  });
-}
-
-onSnapshot(query(bdayCollection, orderBy("date", "asc")), (snapshot) => {
-  if(!bdayList) return;
-  bdayList.innerHTML = "";
-  const now = new Date();
-  const bdays = [];
-  
-  snapshot.forEach(docSnap => {
-    const data = docSnap.data();
-    const bDate = new Date(data.date + 'T00:00:00'); 
-    let nextBday = new Date(now.getFullYear(), bDate.getMonth(), bDate.getDate());
-    if (nextBday < now) nextBday.setFullYear(now.getFullYear() + 1);
-    const daysDiff = Math.ceil((nextBday - now) / (1000 * 60 * 60 * 24));
-    bdays.push({ id: docSnap.id, ...data, daysDiff, bDate });
-  });
-
-  bdays.sort((a, b) => a.daysDiff - b.daysDiff);
-
-  bdays.forEach((b, index) => {
-    const li = document.createElement("li");
-    if (index === 0) li.classList.add("highlight");
-    const dateStr = b.bDate.toLocaleDateString("es-ES", { month: "short", day: "numeric" });
-    const daysText = b.daysDiff === 0 ? "¡HOY!" : `en ${b.daysDiff} días`;
-    li.innerHTML = `
-      <span>${escapeHtml(b.name)} <small style="color:var(--text-dim)">(${dateStr})</small></span>
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span style="font-size:0.8rem; color:var(--accent); font-weight:bold;">${daysText}</span>
-        <button class="btn-delete-small" data-id="${b.id}">×</button>
-      </div>
-    `;
-    bdayList.appendChild(li);
-  });
-
-  document.querySelectorAll(".btn-delete-small[data-id]").forEach(btn => {
-    btn.addEventListener("click", async (e) => {
-      if (confirm("¿Borrar cumpleaños?")) await deleteDoc(doc(db, "birthdays", e.target.dataset.id));
-    });
-  });
+adminBtn.addEventListener("click", () => {
+  adminImmunityBtn.textContent = `🛡️ Inmunidad: ${currentUser.immunity ? 'ON' : 'OFF'}`;
+  adminImmunityBtn.style.background = currentUser.immunity ? 'var(--success)' : 'var(--accent)';
+  adminModal.hidden = false;
 });
 
-// --- COMPRAS ---
-const purchaseCollection = collection(db, "water_logs");
-if (purchaseDate) purchaseDate.valueAsDate = new Date();
+// ============================================================
+//  AMIGO SECRETO
+// ============================================================
+let ssDrawn = false;
+let mySSList = [];
 
-if(purchaseForm) {
-  purchaseForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const name = buyerName.value.trim();
-    const item = itemBought.value.trim();
-    const dateVal = purchaseDate.value; 
-    if (!name || !item || !dateVal) return alert("Falta nombre, artículo o fecha.");
-    try {
-      await addDoc(purchaseCollection, { name, item, date: dateVal });
-      purchaseForm.reset();
-      purchaseDate.valueAsDate = new Date();
-    } catch (err) { alert("Error al guardar"); }
+function initSecretSanta() {
+  // Escuchar configuración general
+  onSnapshot(doc(db, "ss_config", "main"), (docSnap) => {
+    if(docSnap.exists()) ssDrawn = docSnap.data().drawn;
+    renderSS();
+  });
+
+  // Escuchar mi lista de regalos
+  onSnapshot(doc(db, "ss_lists", currentUser.uid), (docSnap) => {
+    if(docSnap.exists()) mySSList = docSnap.data().gifts || [];
+    else mySSList = [];
+    renderSS();
+  });
+
+  // Escuchar mi resultado (a quién le regalo y qué quiere)
+  onSnapshot(doc(db, "ss_results", currentUser.uid), (docSnap) => {
+    renderSS(docSnap.exists() ? docSnap.data() : null);
   });
 }
 
-onSnapshot(query(purchaseCollection, orderBy("date", "desc"), limit(15)), (snapshot) => {
-  if(!purchaseLog) return;
-  purchaseLog.innerHTML = "";
-  if (snapshot.empty) {
-    purchaseLog.innerHTML = `<p style="color:var(--text-dim); font-size:0.9rem; text-align:center;">No hay compras registradas.</p>`;
+async function renderSS(myResult = null) {
+  if(!ssContent) return;
+  ssContent.innerHTML = "";
+
+  if (ssDrawn) {
+    if (myResult) {
+      // Ya sorteado y tengo asignación
+      let giftsHTML = myResult.targetGifts.map(g => `<li>${g}</li>`).join("");
+      if(myResult.targetGifts.length === 0) giftsHTML = "<li>No puso ideas de regalo 😢</li>";
+      
+      ssContent.innerHTML = `
+        <div class="ss-card">
+          <h3>🎅 Te toca regalar a:</h3>
+          <p style="font-size: 1.5rem; font-weight: 800; color: var(--success); margin: 10px 0;">${myResult.targetName}</p>
+          <p style="font-size: 0.9rem; color: var(--text-dim);">Límite sugerido: $${gameConfig.moneyLimit.toLocaleString('es-CL')}</p>
+          <div style="margin-top: 20px; text-align: left;">
+            <h4 style="color: var(--accent); margin-bottom: 8px;">Lista de ideas de regalo:</h4>
+            <ul class="ss-gift-list">${giftsHTML}</ul>
+          </div>
+        </div>
+      `;
+    } else {
+      // Sorteado pero no participé
+      ssContent.innerHTML = `<div class="ss-card"><p>El sorteo ya se realizó. No participaste esta vez.</p></div>`;
+    }
     return;
   }
 
-  const formatPurchaseDate = (dateStr) => {
-    if (dateStr && dateStr.includes('-')) { const [y, m, d] = dateStr.split('-'); return `${d}/${m}/${y}`; }
-    return dateStr || "Sin fecha";
-  };
+  // No sorteado aún
+  let giftListHTML = mySSList.map((g, i) => `
+    <li><span>${g}</span> <button class="btn-delete-small" onclick="removeGift(${i})">×</button></li>
+  `).join("");
 
-  snapshot.forEach(docSnap => {
-    const data = docSnap.data();
-    const div = document.createElement("div");
-    div.className = "purchase-item";
-    div.innerHTML = `
-      <div class="purchase-item-details">
-        <span class="purchase-name">${escapeHtml(data.name)}</span>
-        <span class="purchase-thing">🛒 ${escapeHtml(data.item || "Agua (Registro antiguo)")}</span>
-        <span class="purchase-date">📅 ${formatPurchaseDate(data.date)}</span>
+  let adminControls = "";
+  if (currentUser.isAdmin) {
+    adminControls = `
+      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px dashed var(--border);">
+        <p style="color: var(--danger); font-weight: bold; margin-bottom: 10px;">⚠️ Zona Admin</p>
+        <button id="drawSSBtn" class="btn btn-primary" style="width: 100%;">🎲 Realizar Sorteo Ahora</button>
       </div>
-      <button class="btn-delete-small" data-id="${docSnap.id}">🗑️</button>
     `;
-    purchaseLog.appendChild(div);
+  }
+
+  ssContent.innerHTML = `
+    <div class="ss-card">
+      <h3>¡Participa en el Amigo Secreto!</h3>
+      <p style="font-size: 0.9rem; margin-bottom: 15px;">Límite de regalo: <strong>$${gameConfig.moneyLimit.toLocaleString('es-CL')}</strong></p>
+      
+      <form id="addGiftForm" class="inline-form">
+        <input type="text" id="newGiftInput" placeholder="Ej: Taza de café, Chocolate..." maxlength="50" class="text-input" required />
+        <button type="submit" class="btn btn-accent">Añadir</button>
+      </form>
+      
+      <ul class="ss-gift-list" style="margin-top: 15px;">
+        ${giftListHTML || '<li style="color:var(--text-dim); justify-content:center;">Aún no has agregado regalos.</li>'}
+      </ul>
+      
+      ${adminControls}
+    </div>
+  `;
+
+  document.getElementById("addGiftForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("newGiftInput");
+    if(!input.value.trim()) return;
+    mySSList.push(input.value.trim());
+    await setDoc(doc(db, "ss_lists", currentUser.uid), { uid: currentUser.uid, name: currentUser.name, gifts: mySSList });
   });
 
-  document.querySelectorAll("#purchaseLog .btn-delete-small").forEach(btn => {
-    btn.addEventListener("click", async (e) => {
-      if (confirm("¿Eliminar este registro?")) {
-        await deleteDoc(doc(db, "water_logs", e.target.dataset.id));
-      }
+  document.getElementById("drawSSBtn")?.addEventListener("click", drawSecretSanta);
+}
+
+window.removeGift = async (index) => {
+  mySSList.splice(index, 1);
+  await setDoc(doc(db, "ss_lists", currentUser.uid), { gifts: mySSList });
+};
+
+async function drawSecretSanta() {
+  if(!confirm("¿Estás seguro? Se asignarán los amigos secretos y no se podrá deshacer.")) return;
+  
+  const listsSnap = await getDocs(collection(db, "ss_lists"));
+  let participants = [];
+  listsSnap.forEach(d => participants.push(d.data()));
+
+  if (participants.length < 3) return alert("Se necesitan al menos 3 personas para sortear.");
+
+  // Algoritmo de mezcla (Nadie se saca a sí mismo)
+  let shuffled = [];
+  let success = false;
+  while(!success) {
+    shuffled = [...participants].sort(() => Math.random() - 0.5);
+    success = true;
+    for (let i = 0; i < participants.length; i++) {
+      if (participants[i].uid === shuffled[i].uid) { success = false; break; }
+    }
+  }
+
+  // Guardar resultados asegurando privacidad
+  for (let i = 0; i < participants.length; i++) {
+    const giver = participants[i];
+    const receiver = shuffled[i];
+    
+    await setDoc(doc(db, "ss_results", giver.uid), {
+      targetUid: receiver.uid,
+      targetName: receiver.name,
+      targetGifts: receiver.gifts || []
     });
-  });
-});
+  }
+
+  await setDoc(doc(db, "ss_config", "main"), { drawn: true });
+  alert("¡Sorteo realizado! Cada persona ya puede ver a quién le regala.");
+}
 
 // ============================================================
-//  OFICINA VIRTUAL
+//  OFICINA VIRTUAL, ARRASTRE Y FIX DE HP
 // ============================================================
+const officeCanvas = document.getElementById("officeCanvas");
 const ctx = officeCanvas ? officeCanvas.getContext("2d") : null;
+const canvasContainer = document.getElementById("canvasContainer");
+const positionsCollection = collection(db, "positions");
+
 let players = {}; 
 let myPosition = { x: 400, y: 200 }; 
 let targetPosition = null;
 const PLAYER_SIZE = 32;
 const MOVE_SPEED = 2.5;
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-const positionsCollection = collection(db, "positions");
-
 let lastAttackTime = 0;
 let punchEffect = null; 
+
+// Variables para Arrastrar
+let isDragging = false;
+let draggedPlayerId = null;
 
 const avatarImageCache = {};
 function getAvatarImage(url) {
@@ -472,35 +370,42 @@ function initOffice() {
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
 
+  // Escuchar posiciones y HP de otros
   onSnapshot(positionsCollection, (snapshot) => {
     players = {}; 
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      if (docSnap.id === currentUser.name) {
-        if (data.hp !== undefined) currentUser.hp = data.hp;
-        if (data.mutedUntil !== undefined) currentUser.mutedUntil = data.mutedUntil;
+      if (docSnap.id === currentUser.uid) {
+        // Si yo recibo un golpe, actualizo mi HP local
+        if (data.hp !== undefined && data.hp < currentUser.hp && !currentUser.immunity) {
+          currentUser.hp = data.hp;
+        }
       } else {
         players[docSnap.id] = data;
       }
     });
   });
 
+  // Regeneración de Vida
+  setInterval(() => {
+    if (currentUser.hp < 100) {
+      currentUser.hp = Math.min(100, currentUser.hp + gameConfig.hpRegen);
+      updateHP(); // Solo actualizo mi HP en Firebase
+    }
+  }, 1000); // Cada segundo
+
   savePosition();
   setInterval(() => { if (currentUser.name) savePosition(); }, 2000);
-  window.addEventListener('beforeunload', () => {
-    if (currentUser.name) deleteDoc(doc(positionsCollection, currentUser.name));
-  });
 
   officeCanvas.addEventListener("keydown", (e) => {
-    if (keys.hasOwnProperty(e.key)) {
-      keys[e.key] = true; targetPosition = null; e.preventDefault(); 
-    }
+    if (keys.hasOwnProperty(e.key)) { keys[e.key] = true; targetPosition = null; e.preventDefault(); }
     if (e.key === " ") { e.preventDefault(); attack(); }
   });
   officeCanvas.addEventListener("keyup", (e) => {
     if (keys.hasOwnProperty(e.key)) { keys[e.key] = false; e.preventDefault(); }
   });
 
+  // Controles Táctiles / Clic (Movimiento y Arrastre)
   officeCanvas.addEventListener("pointerdown", (e) => {
     officeCanvas.focus();
     const rect = officeCanvas.getBoundingClientRect();
@@ -508,59 +413,39 @@ function initOffice() {
     const scaleY = officeCanvas.height / rect.height;
     let clickX = (e.clientX - rect.left) * scaleX;
     let clickY = (e.clientY - rect.top) * scaleY;
-    targetPosition = { x: clickX - PLAYER_SIZE / 2, y: clickY - PLAYER_SIZE / 2 };
+
+    // Verificar si hicimos clic sobre otro jugador
+    let clickedOnPlayer = null;
+    Object.keys(players).forEach(id => {
+      const p = players[id];
+      const dx = clickX - (p.x + PLAYER_SIZE/2);
+      const dy = clickY - (p.y + PLAYER_SIZE/2);
+      if (Math.sqrt(dx*dx + dy*dy) < PLAYER_SIZE) clickedOnPlayer = id;
+    });
+
+    if (clickedOnPlayer) {
+      isDragging = true;
+      draggedPlayerId = clickedOnPlayer;
+    } else {
+      targetPosition = { x: clickX - PLAYER_SIZE / 2, y: clickY - PLAYER_SIZE / 2 };
+    }
   });
+
+  officeCanvas.addEventListener("pointermove", (e) => {
+    if (!isDragging || !draggedPlayerId) return;
+    const rect = officeCanvas.getBoundingClientRect();
+    const scaleX = officeCanvas.width / rect.width;
+    const scaleY = officeCanvas.height / rect.height;
+    let x = (e.clientX - rect.left) * scaleX - PLAYER_SIZE / 2;
+    let y = (e.clientY - rect.top) * scaleY - PLAYER_SIZE / 2;
+    
+    // Actualizar posición del otro jugador en Firebase
+    updateDoc(doc(db, "positions", draggedPlayerId), { x: x, y: y });
+  });
+
+  window.addEventListener("pointerup", () => { isDragging = false; draggedPlayerId = null; });
 
   requestAnimationFrame(gameLoop);
-  setInterval(() => { showPauseToast("¡Hora de levantarse! Estira y toma agua."); }, 7200000);
-}
-
-if(suggestPauseBtn) {
-  suggestPauseBtn.addEventListener("click", async () => {
-    if (!currentUser.name) return;
-    try { await addDoc(collection(db, "pauses"), { creator: currentUser.name, createdAt: serverTimestamp() }); } 
-    catch (e) { console.error(e); }
-  });
-}
-
-onSnapshot(query(collection(db, "pauses"), orderBy("createdAt", "desc"), limit(1)), (snapshot) => {
-  if (!snapshot.empty) {
-    const data = snapshot.docs[0].data();
-    if (data.createdAt && Date.now() - data.createdAt.toMillis() < 5000) {
-      showPauseToast(`¡${data.creator} sugiere una pausa activa!`);
-    }
-  }
-});
-
-function showPauseToast(msg) {
-  if(!pauseToast || !pauseToastText) return;
-  pauseToastText.textContent = msg; pauseToast.hidden = false;
-}
-if(closePauseBtn) closePauseBtn.addEventListener("click", () => { pauseToast.hidden = true; });
-
-function attack() {
-  const now = Date.now();
-  if (now - lastAttackTime < 800 || currentUser.mutedUntil > now) return;
-  lastAttackTime = now;
-  punchEffect = { x: myPosition.x, y: myPosition.y, time: now };
-
-  let closestPlayer = null, minDistance = 60;
-  Object.keys(players).forEach(id => {
-    const p = players[id];
-    const dx = (p.x + PLAYER_SIZE/2) - (myPosition.x + PLAYER_SIZE/2);
-    const dy = (p.y + PLAYER_SIZE/2) - (myPosition.y + PLAYER_SIZE/2);
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    if (dist < minDistance) { minDistance = dist; closestPlayer = id; }
-  });
-
-  if (closestPlayer) {
-    const targetData = players[closestPlayer];
-    let targetHp = targetData.hp !== undefined ? targetData.hp : 100;
-    let newHp = targetHp - 25;
-    let newMutedUntil = targetData.mutedUntil || 0;
-    if (newHp <= 0) { newHp = 100; newMutedUntil = now + 60000; }
-    updateDoc(doc(db, "positions", closestPlayer), { hp: newHp, mutedUntil: newMutedUntil });
-  }
 }
 
 function resizeCanvas() {
@@ -595,6 +480,7 @@ function update() {
   if(!officeCanvas) return;
   myPosition.x = Math.max(0, Math.min(officeCanvas.width - PLAYER_SIZE, myPosition.x));
   myPosition.y = Math.max(0, Math.min(officeCanvas.height - PLAYER_SIZE, myPosition.y));
+  
   if (moved) savePosition();
 }
 
@@ -605,14 +491,54 @@ function savePosition() {
   const now = Date.now();
   if (now - lastSave < 100) return; 
   lastSave = now;
-  const docRef = doc(positionsCollection, currentUser.name);
+  const docRef = doc(positionsCollection, currentUser.uid);
+  
   let bubbleToSend = myCurrentBubble;
   if (now - myBubbleTime > 5000) { bubbleToSend = ""; myCurrentBubble = ""; }
 
+  // NOTA: No enviamos 'hp' aquí para no sobreescribir el daño. Solo enviamos la posición.
   setDoc(docRef, {
     x: myPosition.x, y: myPosition.y, name: currentUser.name, avatar: currentUser.avatar,
-    bubbleText: bubbleToSend, bubbleTime: myBubbleTime, hp: currentUser.hp, mutedUntil: currentUser.mutedUntil, lastUpdate: serverTimestamp()
+    bubbleText: bubbleToSend, bubbleTime: myBubbleTime, lastUpdate: serverTimestamp()
   }, { merge: true });
+}
+
+// Función separada para actualizar HP
+function updateHP() {
+  const docRef = doc(positionsCollection, currentUser.uid);
+  updateDoc(docRef, { hp: currentUser.hp, mutedUntil: currentUser.mutedUntil }).catch(e => {});
+}
+
+function attack() {
+  const now = Date.now();
+  if (now - lastAttackTime < 800 || currentUser.mutedUntil > now) return;
+  lastAttackTime = now;
+  punchEffect = { x: myPosition.x, y: myPosition.y, time: now };
+
+  let closestPlayer = null, minDistance = 60;
+  Object.keys(players).forEach(id => {
+    const p = players[id];
+    const dx = (p.x + PLAYER_SIZE/2) - (myPosition.x + PLAYER_SIZE/2);
+    const dy = (p.y + PLAYER_SIZE/2) - (myPosition.y + PLAYER_SIZE/2);
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < minDistance) { minDistance = dist; closestPlayer = id; }
+  });
+
+  if (closestPlayer) {
+    const targetData = players[closestPlayer];
+    // Si el objetivo es admin con inmunidad, no le hacemos daño
+    if (targetData.immunity) return; 
+
+    let targetHp = targetData.hp !== undefined ? targetData.hp : 100;
+    let newHp = targetHp - 25;
+    let newMutedUntil = targetData.mutedUntil || 0;
+
+    if (newHp <= 0) { 
+      newHp = 100; 
+      newMutedUntil = now + (gameConfig.muteDuration * 1000); // Usar config del admin
+    }
+    updateDoc(doc(db, "positions", closestPlayer), { hp: newHp, mutedUntil: newMutedUntil });
+  }
 }
 
 function triggerBubble(text) { myCurrentBubble = text; myBubbleTime = Date.now(); savePosition(); }
@@ -627,11 +553,11 @@ function draw() {
 
   Object.values(players).forEach((p) => {
     if (p.lastUpdate && (Date.now() - p.lastUpdate.toMillis() < 6000)) {
-      drawPlayer(p.x, p.y, p.avatar, p.name, p.bubbleText, p.bubbleTime, p.hp, p.mutedUntil);
+      drawPlayer(p.x, p.y, p.avatar, p.name, p.bubbleText, p.bubbleTime, p.hp, p.mutedUntil, p.immunity);
     }
   });
 
-  drawPlayer(myPosition.x, myPosition.y, currentUser.avatar, currentUser.name, myCurrentBubble, myBubbleTime, currentUser.hp, currentUser.mutedUntil);
+  drawPlayer(myPosition.x, myPosition.y, currentUser.avatar, currentUser.name, myCurrentBubble, myBubbleTime, currentUser.hp, currentUser.mutedUntil, currentUser.immunity);
 
   if (punchEffect && Date.now() - punchEffect.time < 200) {
     ctx.fillStyle = "rgba(255, 50, 50, 0.8)";
@@ -640,16 +566,21 @@ function draw() {
   }
 }
 
-function drawPlayer(x, y, avatarUrl, name, bubbleText, bubbleTime, hp = 100, mutedUntil = 0) {
+function drawPlayer(x, y, avatarUrl, name, bubbleText, bubbleTime, hp = 100, mutedUntil = 0, immunity = false) {
   if(!ctx) return;
   const img = getAvatarImage(avatarUrl);
   if (img.complete) ctx.drawImage(img, x, y, PLAYER_SIZE, PLAYER_SIZE);
   else { ctx.fillStyle = "#dc2626"; ctx.fillRect(x, y, PLAYER_SIZE, PLAYER_SIZE); }
 
+  // Barra HP (Si es inmune, se ve dorada)
   ctx.fillStyle = "#000"; ctx.fillRect(x, y - 12, PLAYER_SIZE, 5);
-  ctx.fillStyle = hp > 50 ? "#22c55e" : (hp > 20 ? "#fbbf24" : "#ef4444"); ctx.fillRect(x, y - 12, (hp / 100) * PLAYER_SIZE, 5);
-  ctx.fillStyle = "#fff"; ctx.font = "bold 10px Inter, sans-serif"; ctx.textAlign = "center"; ctx.fillText(name, x + PLAYER_SIZE / 2, y - 18);
+  ctx.fillStyle = immunity ? "#fbbf24" : (hp > 50 ? "#22c55e" : (hp > 20 ? "#fbbf24" : "#ef4444")); 
+  ctx.fillRect(x, y - 12, (hp / 100) * PLAYER_SIZE, 5);
+  
+  ctx.fillStyle = "#fff"; ctx.font = "bold 10px Inter, sans-serif"; ctx.textAlign = "center"; 
+  ctx.fillText(name, x + PLAYER_SIZE / 2, y - 18);
 
+  if (immunity) { ctx.font = "12px Arial"; ctx.fillText("🛡️", x + PLAYER_SIZE - 5, y - 20); }
   if (mutedUntil > Date.now()) { ctx.font = "14px Arial"; ctx.fillText("🤐", x + PLAYER_SIZE / 2, y - 25); }
 
   if (bubbleText && bubbleText.trim() !== "") {
@@ -658,219 +589,163 @@ function drawPlayer(x, y, avatarUrl, name, bubbleText, bubbleTime, hp = 100, mut
   }
 }
 
-function drawBubble(cx, cy, text, timeElapsed) {
-  if(!ctx) return;
-  ctx.font = "12px Inter, sans-serif";
-  let displayText = text; if (displayText.length > 30) displayText = displayText.substring(0, 27) + "...";
-  const metrics = ctx.measureText(displayText); const textWidth = metrics.width; const padding = 8; const bubbleWidth = textWidth + padding * 2; const bubbleHeight = 28;
-  let opacity = 1; if (timeElapsed < 300) opacity = timeElapsed / 300; else if (timeElapsed > 4500) opacity = 1 - (timeElapsed - 4500) / 500;
-  ctx.globalAlpha = Math.max(0, opacity);
-  const bx = cx - bubbleWidth / 2; const by = cy - bubbleHeight - 10;
-  ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#333333"; ctx.lineWidth = 1.5;
-  ctx.beginPath(); if (ctx.roundRect) { ctx.roundRect(bx, by, bubbleWidth, bubbleHeight, 6); } else { ctx.rect(bx, by, bubbleWidth, bubbleHeight); } ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx - 5, by + bubbleHeight); ctx.lineTo(cx, by + bubbleHeight + 8); ctx.lineTo(cx + 5, by + bubbleHeight); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = "#000000"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(displayText, cx, by + bubbleHeight / 2);
-  ctx.globalAlpha = 1.0;
-}
-
 // ============================================================
-//  CHAT
+//  CONTADORES, CUMPLEAÑOS Y COMPRAS (Mismo código anterior)
 // ============================================================
-function initChat() {
-  const q = query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(100));
-  onSnapshot(q, (snapshot) => {
-    if(!chatMessages) return;
-    chatMessages.innerHTML = "";
-    snapshot.forEach((docSnap) => {
-      const msg = docSnap.data();
-      const div = document.createElement("div");
-      div.className = "chat-message";
-      div.innerHTML = `
-        <img class="msg-avatar" src="${msg.avatar}" alt="${msg.name}" />
-        <div class="msg-body">
-          <div class="msg-header">
-            <span class="msg-name">${escapeHtml(msg.name)}</span>
-            <span class="msg-time">${formatTime(msg.createdAt)}</span>
-          </div>
-          <div class="msg-text">${escapeHtml(msg.text)}</div>
-        </div>
-      `;
-      chatMessages.appendChild(div);
-    });
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }, (error) => console.error("Error chat:", error));
-}
+function updateCountdowns() {
+  const now = new Date();
+  let targetYear = now.getFullYear();
+  let jan29 = new Date(targetYear, 0, 29);
+  while (jan29 < now || jan29.getDay() !== 5) { targetYear++; jan29 = new Date(targetYear, 0, 29); }
+  document.getElementById("cd-jan29").innerText = `${Math.floor((jan29 - now) / (1000 * 60 * 60 * 24))} días`;
 
-if(chatForm) {
-  chatForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (currentUser.mutedUntil > Date.now()) {
-      const secondsLeft = Math.ceil((currentUser.mutedUntil - Date.now()) / 1000);
-      alert(`Estás muteado por K.O. Espera ${secondsLeft} segundos.`);
-      return;
-    }
-    const text = chatInput.value.trim();
-    if (!text) return;
-    chatInput.value = "";
-    triggerBubble(text);
-    try {
-      await addDoc(collection(db, "messages"), { name: currentUser.name, avatar: currentUser.avatar, text, createdAt: serverTimestamp() });
-    } catch (error) { alert("Error al enviar mensaje."); }
+  const year = now.getFullYear();
+  const holidays = [
+    { name: "Año Nuevo", date: `${year}-01-01` }, { name: "Viernes Santo", date: `${year}-03-29` },
+    { name: "Día del Trabajo", date: `${year}-05-01` }, { name: "Navidad", date: `${year}-12-25` }
+  ];
+  let nextHoliday = holidays.find(h => new Date(h.date + 'T00:00:00') > now);
+  if (!nextHoliday) nextHoliday = { name: "Año Nuevo", date: new Date(year + 1, 0, 1) };
+  document.getElementById("cd-holiday-name").innerText = nextHoliday.name;
+  document.getElementById("cd-holiday").innerText = `${Math.ceil((new Date(nextHoliday.date + 'T00:00:00') - now) / (1000 * 60 * 60 * 24))} días`;
+}
+setInterval(updateCountdowns, 60000); updateCountdowns();
+
+const bdayCollection = collection(db, "birthdays");
+document.getElementById("bdayDate")?.addEventListener("input", (e) => {
+  let val = e.target.value.replace(/\D/g, ''); 
+  if (val.length > 2) val = val.substring(0, 2) + '/' + val.substring(2, 4);
+  e.target.value = val;
+});
+document.getElementById("bdayForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = document.getElementById("bdayName").value.trim();
+  const rawDate = document.getElementById("bdayDate").value.trim(); 
+  if (!name || rawDate.length !== 5) return alert("Ingresa nombre y fecha DD/MM.");
+  const [day, month] = rawDate.split('/');
+  const dummyDate = `2000-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  await addDoc(bdayCollection, { name, date: dummyDate });
+  e.target.reset();
+});
+
+onSnapshot(query(bdayCollection, orderBy("date", "asc")), (snapshot) => {
+  const bdayList = document.getElementById("bdayList");
+  if(!bdayList) return;
+  bdayList.innerHTML = "";
+  const bdays = [];
+  snapshot.forEach(doc => {
+    const data = doc.data(); const bDate = new Date(data.date + 'T00:00:00'); 
+    const now = new Date(); let nextBday = new Date(now.getFullYear(), bDate.getMonth(), bDate.getDate());
+    if (nextBday < now) nextBday.setFullYear(now.getFullYear() + 1);
+    bdays.push({ id: doc.id, ...data, daysDiff: Math.ceil((nextBday - now) / 86400000), bDate });
   });
-}
+  bdays.sort((a, b) => a.daysDiff - b.daysDiff).forEach((b, i) => {
+    const li = document.createElement("li");
+    if (i === 0) li.classList.add("highlight");
+    li.innerHTML = `<span>${b.name} <small>(${b.bDate.toLocaleDateString('es-ES', {month:'short', day:'numeric'})})</small></span>
+      <div><span style="color:var(--accent); font-size:0.8rem; font-weight:bold;">en ${b.daysDiff}d</span> <button class="btn-delete-small" data-id="${b.id}">×</button></div>`;
+    bdayList.appendChild(li);
+  });
+  document.querySelectorAll("#bdayList .btn-delete-small").forEach(btn => btn.onclick = async (e) => await deleteDoc(doc(db, "birthdays", e.target.dataset.id)));
+});
+
+const purchaseCollection = collection(db, "water_logs");
+document.getElementById("purchaseDate").valueAsDate = new Date();
+document.getElementById("purchaseForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  await addDoc(purchaseCollection, { name: document.getElementById("buyerName").value, item: document.getElementById("itemBought").value, date: document.getElementById("purchaseDate").value });
+  e.target.reset(); document.getElementById("purchaseDate").valueAsDate = new Date();
+});
+onSnapshot(query(purchaseCollection, orderBy("date", "desc"), limit(15)), (snapshot) => {
+  const purchaseLog = document.getElementById("purchaseLog");
+  if(!purchaseLog) return;
+  purchaseLog.innerHTML = snapshot.empty ? "<p>No hay compras.</p>" : "";
+  snapshot.forEach(doc => {
+    const d = doc.data(); const fDate = d.date.split('-').reverse().join('/');
+    purchaseLog.innerHTML += `<div class="purchase-item"><div class="purchase-item-details"><span class="purchase-name">${d.name}</span><span class="purchase-thing">🛒 ${d.item || "Agua"}</span><span class="purchase-date">📅 ${fDate}</span></div><button class="btn-delete-small" onclick="deletePurchase('${doc.id}')">🗑️</button></div>`;
+  });
+});
+window.deletePurchase = async (id) => { if(confirm("¿Eliminar registro?")) await deleteDoc(doc(db, "water_logs", id)); };
 
 // ============================================================
-//  VOTACIONES
+//  CHAT Y PESTAÑAS
 // ============================================================
-function initPolls() {
-  const q = query(collection(db, "polls"), orderBy("createdAt", "desc"));
-  onSnapshot(q, (snapshot) => {
-    if(!pollsContainer) return;
-    pollsContainer.innerHTML = "";
-    if (snapshot.empty) {
-      pollsContainer.innerHTML = `<p class="empty-state">Aún no hay votaciones. ¡Crea la primera! 🚀</p>`;
-      return;
-    }
-    snapshot.forEach((docSnap) => {
-      const poll = { id: docSnap.id, ...docSnap.data() };
-      renderPoll(poll);
-    });
-  }, (error) => console.error("Error votaciones:", error));
-}
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+  });
+});
 
-function renderPoll(poll) {
+document.getElementById("chatHeader").addEventListener("click", () => {
+  const w = document.getElementById("chatWidget");
+  w.classList.toggle("minimized"); w.classList.toggle("expanded");
+});
+
+onSnapshot(query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(100)), (snapshot) => {
+  const chatMessages = document.getElementById("chatMessages");
+  if(!chatMessages) return;
+  chatMessages.innerHTML = "";
+  snapshot.forEach(doc => {
+    const m = doc.data();
+    chatMessages.innerHTML += `<div class="chat-message"><img class="msg-avatar" src="${m.avatar}"><div><div class="msg-name">${m.name}</div><div class="msg-text">${m.text}</div></div></div>`;
+  });
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+});
+
+document.getElementById("chatForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = document.getElementById("chatInput").value.trim();
+  if(!text) return;
+  document.getElementById("chatInput").value = "";
+  triggerBubble(text);
+  await addDoc(collection(db, "messages"), { name: currentUser.name, avatar: currentUser.avatar, text, createdAt: serverTimestamp() });
+});
+
+// ============================================================
+//  VOTACIONES Y MINIJUEGOS
+// ============================================================
+document.getElementById("newPollBtn")?.addEventListener("click", () => {
+  document.getElementById("pollQuestion").value = ""; document.getElementById("isYesNoPoll").checked = false;
+  document.getElementById("pollOptionsWrapper").style.display = "block";
+  document.getElementById("pollOptionsContainer").innerHTML = `<input type="text" class="text-input poll-option" placeholder="Opción 1"><input type="text" class="text-input poll-option" placeholder="Opción 2">`;
+  document.getElementById("pollModal").hidden = false;
+});
+document.getElementById("addOptionBtn")?.addEventListener("click", (e) => {
+  e.preventDefault(); const c = document.querySelectorAll(".poll-option").length;
+  if(c < 6) document.getElementById("pollOptionsContainer").innerHTML += `<input type="text" class="text-input poll-option" placeholder="Opción ${c+1}">`;
+});
+document.getElementById("createPollBtn")?.addEventListener("click", async (e) => {
+  e.preventDefault();
+  const q = document.getElementById("pollQuestion").value.trim();
+  let opts = [...document.querySelectorAll(".poll-option")].map(i => i.value.trim()).filter(Boolean);
+  if(!q || opts.length < 2) return alert("Faltan datos");
+  if(document.getElementById("isYesNoPoll").checked) opts = ["Sí", "No"];
+  const votes = {}; opts.forEach((_, i) => votes[i] = 0);
+  await addDoc(collection(db, "polls"), { question: q, options: opts, votes, isYesNo: document.getElementById("isYesNoPoll").checked, creator: currentUser.name, createdAt: serverTimestamp() });
+  document.getElementById("pollModal").hidden = true;
+});
+
+onSnapshot(query(collection(db, "polls"), orderBy("createdAt", "desc")), (snapshot) => {
+  const pollsContainer = document.getElementById("pollsContainer");
   if(!pollsContainer) return;
-  const totalVotes = Object.values(poll.votes || {}).reduce((a, b) => a + b, 0);
-  const card = document.createElement("div");
-  card.className = "poll-card";
-
-  const optionsHtml = (poll.options || []).map((opt, idx) => {
-    const count = poll.votes?.[idx] || 0;
-    const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
-    return `
-      <button class="poll-option-btn" data-poll-id="${poll.id}" data-option-idx="${idx}">
-        <span class="option-bar" style="width:${percent}%"></span>
-        <span class="option-text">${escapeHtml(opt)}</span>
-        <span class="option-count">${count} · ${percent}%</span>
-      </button>
-    `;
-  }).join("");
-
-  let mascotHtml = "";
-  if (poll.isYesNo) {
-    mascotHtml = `
-      <div class="mascot-container">
-        <div class="mascot-sign" id="sign-${poll.id}">?</div>
-        <div class="mascot-avatar"><img src="${currentUser.avatar || avatarUrl('pixel-art', 'default')}" alt="Avatar" /></div>
-      </div>
-    `;
-  }
-
-  card.innerHTML = `
-    <button class="btn-delete-poll" title="Eliminar votación">🗑️</button>
-    <div class="poll-question">${escapeHtml(poll.question)}</div>
-    ${mascotHtml}
-    <div class="poll-options">${optionsHtml}</div>
-    <div class="poll-footer">
-      <span>${totalVotes} voto${totalVotes !== 1 ? "s" : ""}</span>
-      <span>Creada por ${escapeHtml(poll.creator || "alguien")}</span>
-    </div>
-  `;
-
-  card.querySelector(".btn-delete-poll").addEventListener("click", async (e) => {
-    e.stopPropagation();
-    if (confirm("¿Estás seguro de que quieres eliminar esta votación?")) {
-      try { await deleteDoc(doc(db, "polls", poll.id)); } catch (error) { alert("No se pudo eliminar."); }
-    }
+  pollsContainer.innerHTML = snapshot.empty ? "<p>No hay votaciones</p>" : "";
+  snapshot.forEach(docSnap => {
+    const p = docSnap.data(); const id = docSnap.id;
+    const total = Object.values(p.votes||{}).reduce((a,b)=>a+b,0);
+    let optsHTML = p.options.map((o, i) => {
+      const count = p.votes[i] || 0; const pct = total > 0 ? Math.round((count/total)*100) : 0;
+      return `<button class="poll-option-btn" onclick="vote('${id}', ${i})"><span class="option-bar" style="width:${pct}%"></span><span class="option-text">${o}</span><span class="option-count">${count} (${pct}%)</span></button>`;
+    }).join("");
+    pollsContainer.innerHTML += `<div class="poll-card"><button class="btn-delete-poll" onclick="delPoll('${id}')">🗑️</button><div class="poll-question">${p.question}</div><div class="poll-options">${optsHTML}</div></div>`;
   });
+});
+window.vote = async (id, idx) => { await updateDoc(doc(db, "polls", id), { [`votes.${idx}`]: increment(1) }); confetti(); };
+window.delPoll = async (id) => { if(confirm("¿Borrar?")) await deleteDoc(doc(db, "polls", id)); };
 
-  const votedKey = `voted_${poll.id}`;
-  const hasVoted = localStorage.getItem(votedKey); 
+document.getElementById("gamesBtn")?.addEventListener("click", () => document.getElementById("gameModal").hidden = false);
+document.getElementById("closeGameBtn")?.addEventListener("click", () => document.getElementById("gameModal").hidden = true);
 
-  if (hasVoted !== null && poll.isYesNo) {
-    const sign = card.querySelector(`#sign-${poll.id}`);
-    if (sign) {
-      if (hasVoted === "0") { sign.textContent = "SÍ"; sign.className = "mascot-sign show green"; }
-      else if (hasVoted === "1") { sign.textContent = "NO"; sign.className = "mascot-sign show red"; }
-    }
-  }
-
-  card.querySelectorAll(".poll-option-btn").forEach((btn) => {
-    if (hasVoted !== null) btn.disabled = true;
-    btn.addEventListener("click", async () => {
-      if (localStorage.getItem(votedKey) !== null) return;
-      const idx = btn.dataset.optionIdx;
-      try {
-        await updateDoc(doc(db, "polls", poll.id), { [`votes.${idx}`]: increment(1) });
-        localStorage.setItem(votedKey, idx);
-        if (poll.isYesNo) {
-          const sign = card.querySelector(`#sign-${poll.id}`);
-          if (sign) {
-            if (idx === "0") { sign.textContent = "SÍ"; sign.className = "mascot-sign show green"; }
-            else { sign.textContent = "NO"; sign.className = "mascot-sign show red"; }
-          }
-        }
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ["#dc2626", "#22c55e", "#fbbf24"] });
-        card.querySelectorAll(".poll-option-btn").forEach((b) => (b.disabled = true));
-      } catch (error) { alert("Error al registrar el voto."); }
-    });
-  });
-
-  pollsContainer.appendChild(card);
-}
-
-if(newPollBtn) {
-  newPollBtn.addEventListener("click", () => {
-    pollQuestion.value = ""; isYesNoPoll.checked = false; pollOptionsWrapper.style.display = "block";
-    pollOptionsContainer.innerHTML = `
-      <input type="text" class="text-input poll-option" placeholder="Opción 1" maxlength="60" />
-      <input type="text" class="text-input poll-option" placeholder="Opción 2" maxlength="60" />
-    `;
-    pollModal.hidden = false;
-  });
-}
-
-if(isYesNoPoll) {
-  isYesNoPoll.addEventListener("change", (e) => {
-    pollOptionsWrapper.style.display = e.target.checked ? "none" : "block";
-  });
-}
-
-if(addOptionBtn) {
-  addOptionBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    const count = pollOptionsContainer.querySelectorAll(".poll-option").length;
-    if (count >= 6) return alert("Máximo 6 opciones.");
-    const input = document.createElement("input");
-    input.type = "text"; input.className = "text-input poll-option"; input.placeholder = `Opción ${count + 1}`; input.maxLength = 60;
-    pollOptionsContainer.appendChild(input);
-  });
-}
-
-if(createPollBtn) {
-  createPollBtn.addEventListener("click", async (e) => {
-    e.preventDefault(); 
-    const question = pollQuestion.value.trim();
-    const isYesNo = isYesNoPoll.checked;
-    let options = [];
-    if (isYesNo) { options = ["Sí", "No"]; } else {
-      const optionInputs = [...pollOptionsContainer.querySelectorAll(".poll-option")];
-      options = optionInputs.map(i => i.value.trim()).filter(Boolean);
-    }
-    if (!question) return alert("Escribe una pregunta.");
-    if (options.length < 2) return alert("Necesitas al menos 2 opciones.");
-    const votes = {};
-    options.forEach((_, i) => (votes[i] = 0));
-    try {
-      await addDoc(collection(db, "polls"), { question, options, votes, isYesNo, creator: currentUser.name || "Anónimo", createdAt: serverTimestamp() });
-      pollModal.hidden = true;
-    } catch (error) { alert("Error de Firebase al crear la votación."); }
-  });
-}
-
-function initRealtime() { initChat(); initPolls(); }
-
-// PWA
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(err => console.log('SW fallo:', err)); });
-}
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
