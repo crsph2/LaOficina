@@ -5,18 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>La Oficina · Vota, Chatea y Juega</title>
   <link rel="stylesheet" href="style.css" />
-  
-  <!-- PWA Meta Tags -->
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0a0f0d" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 </head>
 <body>
-
   <div class="aurora-bg"></div>
 
   <!-- Notificación de Pausa Activa -->
@@ -35,15 +29,15 @@
       <span class="logo-icon">🏢</span>
       <span class="logo-text">La <span>Oficina</span></span>
     </div>
-    
     <div class="topbar-right">
       <button id="gamesBtn" type="button" class="btn btn-games">🎮 Minijuegos</button>
+      <button id="adminBtn" type="button" class="btn btn-admin" hidden>⚙️ Admin</button>
       <a href="https://crsph2.github.io/casino/" target="_blank" rel="noopener noreferrer" class="btn btn-almuerzos">🍽️ Almuerzos</a>
       
       <div class="user-profile" id="userProfile" hidden>
         <img id="headerAvatar" class="avatar" alt="Avatar" />
         <span id="headerName" class="user-name"></span>
-        <button id="changeAvatarBtn" type="button" class="icon-btn" title="Cambiar avatar">✏️</button>
+        <button id="changeAvatarBtn" type="button" class="icon-btn" title="Editar Perfil">✏️</button>
         <button id="logoutBtn" type="button" class="btn btn-ghost" style="padding: 5px 10px; font-size: 0.8rem; margin-left: 5px; border-color: var(--danger); color: var(--danger);">Salir</button>
       </div>
     </div>
@@ -54,7 +48,7 @@
     <div class="office-header">
       <h2>🗺️ Oficina Virtual</h2>
       <div class="office-controls">
-        <p class="office-hint">Flechas para moverte o <strong>toca el mapa</strong>. <strong>Espacio</strong> para golpear.</p>
+        <p class="office-hint">Flechas para moverte, <strong>arrastra a un compañero</strong>. <strong>Espacio</strong> para golpear.</p>
         <button id="suggestPauseBtn" type="button" class="btn btn-ghost btn-small" style="width: auto;">☕ Sugerir Pausa</button>
       </div>
     </div>
@@ -65,120 +59,103 @@
 
   <!-- ÁREA ESCROLEABLE INFERIOR -->
   <div class="bottom-area">
-    
-    <!-- Pestañas -->
     <div class="tabs-header">
       <button class="tab-btn active" data-tab="tools">🛠️ Herramientas</button>
       <button class="tab-btn" data-tab="polls">🗳️ Votaciones</button>
+      <button class="tab-btn" data-tab="secretsanta">🎁 Amigo Secreto</button>
     </div>
 
-    <!-- Contenido: Herramientas -->
+    <!-- Pestaña: Herramientas -->
     <div class="tab-content active" id="tab-tools">
       <div class="tools-grid">
-        
-        <!-- Cuadro Navideño Decorativo -->
         <div class="panel tool-panel image-panel">
-          <img src="natividad.png" alt="Cuadro Navideño de la Oficina" class="decorative-img" />
-          <p class="image-caption">✨ Felices Fiestas de parte de La Oficina ✨</p>
+          <img src="natividad.png" alt="Cuadro Navideño" class="decorative-img" />
+          <p class="image-caption">✨ Felices Fiestas ✨</p>
         </div>
-
-        <!-- Contadores -->
         <div class="panel tool-panel">
           <h2>⏳ Cuenta Regresiva</h2>
           <div class="countdown-box">
-            <div class="countdown-item">
-              <span class="cd-title">Viernes 29 de Enero</span>
-              <span class="cd-time" id="cd-jan29">Calculando...</span>
-            </div>
-            <div class="countdown-item">
-              <span class="cd-title" id="cd-holiday-name">Próximo Feriado</span>
-              <span class="cd-time" id="cd-holiday">Calculando...</span>
-            </div>
+            <div class="countdown-item"><span class="cd-title">Viernes 29 de Enero</span><span class="cd-time" id="cd-jan29">...</span></div>
+            <div class="countdown-item"><span class="cd-title" id="cd-holiday-name">Próximo Feriado</span><span class="cd-time" id="cd-holiday">...</span></div>
           </div>
         </div>
-
-        <!-- Cumpleaños -->
         <div class="panel tool-panel">
           <h2>🎂 Cumpleaños</h2>
           <form id="bdayForm" class="inline-form">
-            <input type="text" id="bdayName" placeholder="Nombre" maxlength="20" required class="text-input" />
+            <input type="text" id="bdayName" placeholder="Nombre" required class="text-input" />
             <input type="text" id="bdayDate" placeholder="DD/MM" maxlength="5" required class="text-input" />
             <button type="submit" class="btn btn-primary btn-small">+</button>
           </form>
-          <ul id="bdayList" class="tool-list">
-            <!-- Se llena con JS -->
-          </ul>
+          <ul id="bdayList" class="tool-list"></ul>
         </div>
-
-        <!-- Compras -->
         <div class="panel tool-panel" style="grid-column: span 2;">
           <h2>🛒 Registro de Compras</h2>
           <form id="purchaseForm" class="inline-form" style="flex-wrap: wrap;">
-            <input type="text" id="buyerName" placeholder="¿Quién compró?" maxlength="20" required class="text-input" style="flex: 1 1 120px;" />
-            <input type="text" id="itemBought" placeholder="¿Qué compró? (Ej: Agua, Café)" maxlength="30" required class="text-input" style="flex: 2 1 150px;" />
+            <input type="text" id="buyerName" placeholder="¿Quién compró?" required class="text-input" style="flex: 1 1 120px;" />
+            <input type="text" id="itemBought" placeholder="¿Qué compró?" required class="text-input" style="flex: 2 1 150px;" />
             <input type="date" id="purchaseDate" required class="text-input" style="flex: 1 1 130px;" />
             <button type="submit" class="btn btn-primary btn-small">Registrar</button>
           </form>
-          <div id="purchaseLog" class="purchase-log-display">
-            <!-- Se llena con JS -->
-          </div>
+          <div id="purchaseLog" class="purchase-log-display"></div>
         </div>
-
       </div>
     </div>
 
-    <!-- Contenido: Votaciones -->
+    <!-- Pestaña: Votaciones -->
     <div class="tab-content" id="tab-polls">
       <div class="panel polls-panel">
         <div class="panel-header">
           <h2>Votaciones activas</h2>
           <button id="newPollBtn" type="button" class="btn btn-accent">+ Nueva votación</button>
         </div>
-        <div id="pollsContainer" class="polls-container">
-          <p class="empty-state">Aún no hay votaciones. ¡Crea la primera! 🚀</p>
-        </div>
+        <div id="pollsContainer" class="polls-container"></div>
       </div>
     </div>
 
+    <!-- Pestaña: Amigo Secreto -->
+    <div class="tab-content" id="tab-secretsanta">
+      <div class="panel ss-panel">
+        <div class="panel-header">
+          <h2>🎁 Amigo Secreto</h2>
+          <span id="ssLimitDisplay" class="ss-limit-badge">Límite: $10.000</span>
+        </div>
+        <div id="ssContent" class="ss-content">
+          <!-- Se llena con JS -->
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- WIDGET DE CHAT FLOTANTE -->
   <div id="chatWidget" class="chat-widget minimized">
     <div class="chat-header" id="chatHeader">
-      <div class="chat-title">
-        <span class="online-dot" title="Conectado"></span>
-        <span>Chat de Oficina</span>
-      </div>
+      <div class="chat-title"><span class="online-dot"></span><span>Chat de Oficina</span></div>
       <button id="toggleChatBtn" class="chat-toggle-btn">▲</button>
     </div>
     <div class="chat-body">
       <div id="chatMessages" class="chat-messages"></div>
       <form id="chatForm" class="chat-form">
-        <input id="chatInput" type="text" placeholder="Escribe un mensaje..." autocomplete="off" maxlength="300" />
+        <input id="chatInput" type="text" placeholder="Escribe un mensaje..." maxlength="300" />
         <button type="submit" class="btn btn-primary">Enviar</button>
       </form>
     </div>
   </div>
 
-  <!-- MODAL DE LOGIN (Correo/Google) -->
+  <!-- MODALES -->
+  <!-- Login -->
   <div id="loginModal" class="modal-overlay" hidden>
     <div class="modal">
       <h2>👋 ¡Bienvenido/a!</h2>
       <p>Inicia sesión para entrar a la oficina.</p>
-      
       <label class="field-label">Correo electrónico</label>
       <input id="emailInput" type="email" placeholder="tu@correo.com" class="text-input" />
-      
       <label class="field-label">Contraseña</label>
       <input id="passwordInput" type="password" placeholder="••••••••" class="text-input" />
-      
       <div style="display: flex; gap: 10px; margin-top: 20px;">
         <button id="loginEmailBtn" class="btn btn-primary" style="flex: 1;">Iniciar Sesión</button>
         <button id="registerEmailBtn" class="btn btn-accent" style="flex: 1;">Registrarse</button>
       </div>
-
       <div style="text-align: center; margin: 20px 0; color: var(--text-dim);">— O —</div>
-
       <button id="googleLoginBtn" class="btn btn-ghost" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid var(--border);">
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style="width: 20px; height: 20px;" />
         Continuar con Google
@@ -186,38 +163,51 @@
     </div>
   </div>
 
-  <!-- MODAL PARA CAMBIAR AVATAR -->
-  <div id="avatarModal" class="modal-overlay" hidden>
+  <!-- Editar Perfil -->
+  <div id="profileModal" class="modal-overlay" hidden>
     <div class="modal">
-      <h2>✏️ Elige tu nuevo avatar</h2>
+      <h2>✏️ Editar Perfil</h2>
+      <label class="field-label">Tu Nombre</label>
+      <input id="editNameInput" type="text" maxlength="20" class="text-input" />
+      <label class="field-label">Elige tu nuevo avatar</label>
       <div id="avatarGrid" class="avatar-grid"></div>
-      <button id="closeAvatarBtn" class="btn btn-primary btn-block">Listo</button>
+      <button id="saveProfileBtn" class="btn btn-primary btn-block">Guardar Cambios</button>
     </div>
   </div>
 
-  <!-- MODAL DE VOTACIONES -->
+  <!-- Panel de Admin -->
+  <div id="adminModal" class="modal-overlay" hidden>
+    <div class="modal">
+      <h2>⚙️ Panel de Administrador</h2>
+      <label class="field-label">Tiempo de Silencio (Segundos por KO)</label>
+      <input id="adminMuteTime" type="number" class="text-input" placeholder="Ej: 60" />
+      <label class="field-label">Regeneración de Vida (HP por segundo)</label>
+      <input id="adminHpRegen" type="number" class="text-input" placeholder="Ej: 1" />
+      <label class="field-label">Límite Amigo Secreto ($)</label>
+      <input id="adminMoneyLimit" type="number" class="text-input" placeholder="Ej: 10000" />
+      <label class="field-label">Inmunidad de Admin (No recibes daño)</label>
+      <button id="adminImmunityBtn" class="btn btn-accent" style="width: 100%; margin-bottom: 15px;">🛡️ Inmunidad: OFF</button>
+      <button id="saveAdminConfigBtn" class="btn btn-primary btn-block">Guardar Configuración</button>
+    </div>
+  </div>
+
+  <!-- Votaciones -->
   <div id="pollModal" class="modal-overlay" hidden>
     <div class="modal">
       <h2>✨ Nueva votación</h2>
       <label class="field-label">Pregunta</label>
-      <input id="pollQuestion" type="text" placeholder="Ej: ¿Prendemos la calefacción?" maxlength="120" class="text-input" />
-      <label class="checkbox-label">
-        <input type="checkbox" id="isYesNoPoll" />
-        <span>Modo Sí/No (Mascota animada)</span>
-      </label>
+      <input id="pollQuestion" type="text" maxlength="120" class="text-input" />
+      <label class="checkbox-label"><input type="checkbox" id="isYesNoPoll" /><span>Modo Sí/No</span></label>
       <div id="pollOptionsWrapper">
-        <label class="field-label">Opciones (mínimo 2)</label>
-        <div id="pollOptionsContainer">
-          <input type="text" class="text-input poll-option" placeholder="Opción 1" maxlength="60" />
-          <input type="text" class="text-input poll-option" placeholder="Opción 2" maxlength="60" />
-        </div>
+        <label class="field-label">Opciones</label>
+        <div id="pollOptionsContainer"></div>
         <button id="addOptionBtn" type="button" class="btn btn-ghost">+ Añadir opción</button>
       </div>
       <button id="createPollBtn" type="button" class="btn btn-primary btn-block">Crear votación</button>
     </div>
   </div>
 
-  <!-- MODAL DE MINIJUEGOS -->
+  <!-- Minijuegos -->
   <div id="gameModal" class="modal-overlay" hidden>
     <div class="modal game-modal-content">
       <div class="game-modal-header">
