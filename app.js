@@ -130,10 +130,11 @@ onAuthStateChanged(auth, async (user) => {
       }
     });
 
+    // 🟢 INICIALIZACIÓN SEGURA: Solo cargamos los datos cuando el usuario ya está autenticado
     if (!appInitialized) {
-      initRealtime();
-      initOffice();
-      initSecretSanta();
+      initRealtime();   // Chat, Votaciones y HERRAMIENTAS (Cumpleaños, Compras)
+      initOffice();     // Canvas y Juego
+      initSecretSanta(); // Amigo Secreto
       appInitialized = true;
     }
   } else {
@@ -215,6 +216,78 @@ adminBtn?.addEventListener("click", () => {
   adminImmunityBtn.style.background = currentUser.immunity ? 'var(--success)' : 'var(--accent)';
   adminModal.hidden = false;
 });
+
+// ============================================================
+//  HERRAMIENTAS: CONTADORES, CUMPLEAÑOS Y COMPRAS 
+//  (Ahora se cargan de forma segura después del login)
+// ============================================================
+function initRealtime() {
+  initChat();
+  initPolls();
+  initTools(); // <-- Nueva función para cumpleaños y compras
+}
+
+function initTools() {
+  // --- CUMPLEAÑOS ---
+  const bdayCollection = collection(db, "birthdays");
+  document.getElementById("bdayDate")?.addEventListener("input", (e) => {
+    let val = e.target.value.replace(/\D/g, ''); 
+    if (val.length > 2) val = val.substring(0, 2) + '/' + val.substring(2, 4);
+    e.target.value = val;
+  });
+  document.getElementById("bdayForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("bdayName").value.trim();
+    const rawDate = document.getElementById("bdayDate").value.trim(); 
+    if (!name || rawDate.length !== 5) return alert("Ingresa nombre y fecha DD/MM.");
+    const [day, month] = rawDate.split('/');
+    const dummyDate = `2000-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    await addDoc(bdayCollection, { name, date: dummyDate });
+    e.target.reset();
+  });
+
+  onSnapshot(query(bdayCollection, orderBy("date", "asc")), (snapshot) => {
+    const bdayList = document.getElementById("bdayList");
+    if(!bdayList) return;
+    bdayList.innerHTML = "";
+    const bdays = [];
+    snapshot.forEach(doc => {
+      const data = doc.data(); const bDate = new Date(data.date + 'T00:00:00'); 
+      const now = new Date(); let nextBday = new Date(now.getFullYear(), bDate.getMonth(), bDate.getDate());
+      if (nextBday < now) nextBday.setFullYear(now.getFullYear() + 1);
+      bdays.push({ id: doc.id, ...data, daysDiff: Math.ceil((nextBday - now) / 86400000), bDate });
+    });
+    bdays.sort((a, b) => a.daysDiff - b.daysDiff).forEach((b, i) => {
+      const li = document.createElement("li");
+      if (i === 0) li.classList.add("highlight");
+      li.innerHTML = `<span>${b.name} <small>(${b.bDate.toLocaleDateString('es-ES', {month:'short', day:'numeric'})})</small></span>
+        <div><span style="color:var(--accent); font-size:0.8rem; font-weight:bold;">en ${b.daysDiff}d</span> <button class="btn-delete-small" data-id="${b.id}">×</button></div>`;
+      bdayList.appendChild(li);
+    });
+    document.querySelectorAll("#bdayList .btn-delete-small").forEach(btn => btn.onclick = async (e) => await deleteDoc(doc(db, "birthdays", e.target.dataset.id)));
+  });
+
+  // --- COMPRAS ---
+  const purchaseCollection = collection(db, "water_logs");
+  if(document.getElementById("purchaseDate")) document.getElementById("purchaseDate").valueAsDate = new Date();
+  document.getElementById("purchaseForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await addDoc(purchaseCollection, { name: document.getElementById("buyerName").value, item: document.getElementById("itemBought").value, date: document.getElementById("purchaseDate").value });
+    e.target.reset(); document.getElementById("purchaseDate").valueAsDate = new Date();
+  });
+  onSnapshot(query(purchaseCollection, orderBy("date", "desc"), limit(15)), (snapshot) => {
+    const purchaseLog = document.getElementById("purchaseLog");
+    if(!purchaseLog) return;
+    purchaseLog.innerHTML = snapshot.empty ? "<p>No hay compras.</p>" : "";
+    snapshot.forEach(doc => {
+      const d = doc.data(); const fDate = d.date.split('-').reverse().join('/');
+      purchaseLog.innerHTML += `<div class="purchase-item"><div class="purchase-item-details"><span class="purchase-name">${d.name}</span><span class="purchase-thing">🛒 ${d.item || "Agua"}</span><span class="purchase-date">📅 ${fDate}</span></div><button class="btn-delete-small" onclick="deletePurchase('${doc.id}')">🗑️</button></div>`;
+    });
+  });
+}
+
+window.deletePurchase = async (id) => { if(confirm("¿Eliminar registro?")) await deleteDoc(doc(db, "water_logs", id)); };
+
 
 // ============================================================
 //  AMIGO SECRETO
@@ -369,7 +442,7 @@ async function drawSecretSanta() {
 }
 
 // ============================================================
-//  OFICINA VIRTUAL (CON RESIZE OBSERVER Y CÁLCULO EXACTO)
+//  OFICINA VIRTUAL
 // ============================================================
 const officeCanvas = document.getElementById("officeCanvas");
 const ctx = officeCanvas ? officeCanvas.getContext("2d") : null;
@@ -397,14 +470,12 @@ function getAvatarImage(url) {
 function initOffice() {
   if(!officeCanvas || !canvasContainer) return;
   
-  // 🟢 SOLUCIÓN AL CANVAS EN BLANCO: ResizeObserver
   const resizeObserver = new ResizeObserver(() => {
     officeCanvas.width = canvasContainer.clientWidth;
     officeCanvas.height = canvasContainer.clientHeight;
   });
   resizeObserver.observe(canvasContainer);
   
-  // Forzar tamaño inicial
   officeCanvas.width = canvasContainer.clientWidth;
   officeCanvas.height = canvasContainer.clientHeight;
 
@@ -440,7 +511,6 @@ function initOffice() {
     if (keys.hasOwnProperty(e.key)) { keys[e.key] = false; e.preventDefault(); }
   });
 
-  // 🟢 SOLUCIÓN A ARRASTRAR: Cálculo exacto de coordenadas
   officeCanvas.addEventListener("pointerdown", (e) => {
     officeCanvas.focus();
     const rect = officeCanvas.getBoundingClientRect();
@@ -629,7 +699,7 @@ function drawBubble(cx, cy, text, timeElapsed) {
 }
 
 // ============================================================
-//  CONTADORES, CUMPLEAÑOS Y COMPRAS 
+//  CONTADORES (Se mantienen aquí)
 // ============================================================
 function updateCountdowns() {
   const now = new Date();
@@ -650,88 +720,25 @@ function updateCountdowns() {
 }
 setInterval(updateCountdowns, 60000); updateCountdowns();
 
-const bdayCollection = collection(db, "birthdays");
-document.getElementById("bdayDate")?.addEventListener("input", (e) => {
-  let val = e.target.value.replace(/\D/g, ''); 
-  if (val.length > 2) val = val.substring(0, 2) + '/' + val.substring(2, 4);
-  e.target.value = val;
-});
-document.getElementById("bdayForm")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const name = document.getElementById("bdayName").value.trim();
-  const rawDate = document.getElementById("bdayDate").value.trim(); 
-  if (!name || rawDate.length !== 5) return alert("Ingresa nombre y fecha DD/MM.");
-  const [day, month] = rawDate.split('/');
-  const dummyDate = `2000-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-  await addDoc(bdayCollection, { name, date: dummyDate });
-  e.target.reset();
-});
-
-onSnapshot(query(bdayCollection, orderBy("date", "asc")), (snapshot) => {
-  const bdayList = document.getElementById("bdayList");
-  if(!bdayList) return;
-  bdayList.innerHTML = "";
-  const bdays = [];
-  snapshot.forEach(doc => {
-    const data = doc.data(); const bDate = new Date(data.date + 'T00:00:00'); 
-    const now = new Date(); let nextBday = new Date(now.getFullYear(), bDate.getMonth(), bDate.getDate());
-    if (nextBday < now) nextBday.setFullYear(now.getFullYear() + 1);
-    bdays.push({ id: doc.id, ...data, daysDiff: Math.ceil((nextBday - now) / 86400000), bDate });
-  });
-  bdays.sort((a, b) => a.daysDiff - b.daysDiff).forEach((b, i) => {
-    const li = document.createElement("li");
-    if (i === 0) li.classList.add("highlight");
-    li.innerHTML = `<span>${b.name} <small>(${b.bDate.toLocaleDateString('es-ES', {month:'short', day:'numeric'})})</small></span>
-      <div><span style="color:var(--accent); font-size:0.8rem; font-weight:bold;">en ${b.daysDiff}d</span> <button class="btn-delete-small" data-id="${b.id}">×</button></div>`;
-    bdayList.appendChild(li);
-  });
-  document.querySelectorAll("#bdayList .btn-delete-small").forEach(btn => btn.onclick = async (e) => await deleteDoc(doc(db, "birthdays", e.target.dataset.id)));
-});
-
-const purchaseCollection = collection(db, "water_logs");
-if(document.getElementById("purchaseDate")) document.getElementById("purchaseDate").valueAsDate = new Date();
-document.getElementById("purchaseForm")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  await addDoc(purchaseCollection, { name: document.getElementById("buyerName").value, item: document.getElementById("itemBought").value, date: document.getElementById("purchaseDate").value });
-  e.target.reset(); document.getElementById("purchaseDate").valueAsDate = new Date();
-});
-onSnapshot(query(purchaseCollection, orderBy("date", "desc"), limit(15)), (snapshot) => {
-  const purchaseLog = document.getElementById("purchaseLog");
-  if(!purchaseLog) return;
-  purchaseLog.innerHTML = snapshot.empty ? "<p>No hay compras.</p>" : "";
-  snapshot.forEach(doc => {
-    const d = doc.data(); const fDate = d.date.split('-').reverse().join('/');
-    purchaseLog.innerHTML += `<div class="purchase-item"><div class="purchase-item-details"><span class="purchase-name">${d.name}</span><span class="purchase-thing">🛒 ${d.item || "Agua"}</span><span class="purchase-date">📅 ${fDate}</span></div><button class="btn-delete-small" onclick="deletePurchase('${doc.id}')">🗑️</button></div>`;
-  });
-});
-window.deletePurchase = async (id) => { if(confirm("¿Eliminar registro?")) await deleteDoc(doc(db, "water_logs", id)); };
-
 // ============================================================
-//  CHAT Y PESTAÑAS
+//  CHAT
 // ============================================================
-document.querySelectorAll(".tab-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-    btn.classList.add("active");
-    document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+function initChat() {
+  onSnapshot(query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(100)), (snapshot) => {
+    const chatMessages = document.getElementById("chatMessages");
+    if(!chatMessages) return;
+    chatMessages.innerHTML = "";
+    snapshot.forEach(doc => {
+      const m = doc.data();
+      chatMessages.innerHTML += `<div class="chat-message"><img class="msg-avatar" src="${m.avatar}"><div><div class="msg-name">${m.name}</div><div class="msg-text">${m.text}</div></div></div>`;
+    });
+    chatMessages.scrollTop = chatMessages.scrollHeight;
   });
-});
+}
 
 document.getElementById("chatHeader")?.addEventListener("click", () => {
   const w = document.getElementById("chatWidget");
   w.classList.toggle("minimized"); w.classList.toggle("expanded");
-});
-
-onSnapshot(query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(100)), (snapshot) => {
-  const chatMessages = document.getElementById("chatMessages");
-  if(!chatMessages) return;
-  chatMessages.innerHTML = "";
-  snapshot.forEach(doc => {
-    const m = doc.data();
-    chatMessages.innerHTML += `<div class="chat-message"><img class="msg-avatar" src="${m.avatar}"><div><div class="msg-name">${m.name}</div><div class="msg-text">${m.text}</div></div></div>`;
-  });
-  chatMessages.scrollTop = chatMessages.scrollHeight;
 });
 
 document.getElementById("chatForm")?.addEventListener("submit", async (e) => {
@@ -746,45 +753,57 @@ document.getElementById("chatForm")?.addEventListener("submit", async (e) => {
 // ============================================================
 //  VOTACIONES Y MINIJUEGOS
 // ============================================================
-document.getElementById("newPollBtn")?.addEventListener("click", () => {
-  document.getElementById("pollQuestion").value = ""; document.getElementById("isYesNoPoll").checked = false;
-  document.getElementById("pollOptionsWrapper").style.display = "block";
-  document.getElementById("pollOptionsContainer").innerHTML = `<input type="text" class="text-input poll-option" placeholder="Opción 1"><input type="text" class="text-input poll-option" placeholder="Opción 2">`;
-  document.getElementById("pollModal").hidden = false;
-});
-document.getElementById("addOptionBtn")?.addEventListener("click", (e) => {
-  e.preventDefault(); const c = document.querySelectorAll(".poll-option").length;
-  if(c < 6) document.getElementById("pollOptionsContainer").innerHTML += `<input type="text" class="text-input poll-option" placeholder="Opción ${c+1}">`;
-});
-document.getElementById("createPollBtn")?.addEventListener("click", async (e) => {
-  e.preventDefault();
-  const q = document.getElementById("pollQuestion").value.trim();
-  let opts = [...document.querySelectorAll(".poll-option")].map(i => i.value.trim()).filter(Boolean);
-  if(!q || opts.length < 2) return alert("Faltan datos");
-  if(document.getElementById("isYesNoPoll").checked) opts = ["Sí", "No"];
-  const votes = {}; opts.forEach((_, i) => votes[i] = 0);
-  await addDoc(collection(db, "polls"), { question: q, options: opts, votes, isYesNo: document.getElementById("isYesNoPoll").checked, creator: currentUser.name, createdAt: serverTimestamp() });
-  document.getElementById("pollModal").hidden = true;
-});
-
-onSnapshot(query(collection(db, "polls"), orderBy("createdAt", "desc")), (snapshot) => {
-  const pollsContainer = document.getElementById("pollsContainer");
-  if(!pollsContainer) return;
-  pollsContainer.innerHTML = snapshot.empty ? "<p>No hay votaciones</p>" : "";
-  snapshot.forEach(docSnap => {
-    const p = docSnap.data(); const id = docSnap.id;
-    const total = Object.values(p.votes||{}).reduce((a,b)=>a+b,0);
-    let optsHTML = p.options.map((o, i) => {
-      const count = p.votes[i] || 0; const pct = total > 0 ? Math.round((count/total)*100) : 0;
-      return `<button class="poll-option-btn" onclick="vote('${id}', ${i})"><span class="option-bar" style="width:${pct}%"></span><span class="option-text">${o}</span><span class="option-count">${count} (${pct}%)</span></button>`;
-    }).join("");
-    pollsContainer.innerHTML += `<div class="poll-card"><button class="btn-delete-poll" onclick="delPoll('${id}')">🗑️</button><div class="poll-question">${p.question}</div><div class="poll-options">${optsHTML}</div></div>`;
+function initPolls() {
+  document.getElementById("newPollBtn")?.addEventListener("click", () => {
+    document.getElementById("pollQuestion").value = ""; document.getElementById("isYesNoPoll").checked = false;
+    document.getElementById("pollOptionsWrapper").style.display = "block";
+    document.getElementById("pollOptionsContainer").innerHTML = `<input type="text" class="text-input poll-option" placeholder="Opción 1"><input type="text" class="text-input poll-option" placeholder="Opción 2">`;
+    document.getElementById("pollModal").hidden = false;
   });
-});
+  document.getElementById("addOptionBtn")?.addEventListener("click", (e) => {
+    e.preventDefault(); const c = document.querySelectorAll(".poll-option").length;
+    if(c < 6) document.getElementById("pollOptionsContainer").innerHTML += `<input type="text" class="text-input poll-option" placeholder="Opción ${c+1}">`;
+  });
+  document.getElementById("createPollBtn")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const q = document.getElementById("pollQuestion").value.trim();
+    let opts = [...document.querySelectorAll(".poll-option")].map(i => i.value.trim()).filter(Boolean);
+    if(!q || opts.length < 2) return alert("Faltan datos");
+    if(document.getElementById("isYesNoPoll").checked) opts = ["Sí", "No"];
+    const votes = {}; opts.forEach((_, i) => votes[i] = 0);
+    await addDoc(collection(db, "polls"), { question: q, options: opts, votes, isYesNo: document.getElementById("isYesNoPoll").checked, creator: currentUser.name, createdAt: serverTimestamp() });
+    document.getElementById("pollModal").hidden = true;
+  });
+
+  onSnapshot(query(collection(db, "polls"), orderBy("createdAt", "desc")), (snapshot) => {
+    const pollsContainer = document.getElementById("pollsContainer");
+    if(!pollsContainer) return;
+    pollsContainer.innerHTML = snapshot.empty ? "<p>No hay votaciones</p>" : "";
+    snapshot.forEach(docSnap => {
+      const p = docSnap.data(); const id = docSnap.id;
+      const total = Object.values(p.votes||{}).reduce((a,b)=>a+b,0);
+      let optsHTML = p.options.map((o, i) => {
+        const count = p.votes[i] || 0; const pct = total > 0 ? Math.round((count/total)*100) : 0;
+        return `<button class="poll-option-btn" onclick="vote('${id}', ${i})"><span class="option-bar" style="width:${pct}%"></span><span class="option-text">${o}</span><span class="option-count">${count} (${pct}%)</span></button>`;
+      }).join("");
+      pollsContainer.innerHTML += `<div class="poll-card"><button class="btn-delete-poll" onclick="delPoll('${id}')">🗑️</button><div class="poll-question">${p.question}</div><div class="poll-options">${optsHTML}</div></div>`;
+    });
+  });
+}
+
 window.vote = async (id, idx) => { await updateDoc(doc(db, "polls", id), { [`votes.${idx}`]: increment(1) }); confetti(); };
 window.delPoll = async (id) => { if(confirm("¿Borrar?")) await deleteDoc(doc(db, "polls", id)); };
 
 document.getElementById("gamesBtn")?.addEventListener("click", () => document.getElementById("gameModal").hidden = false);
 document.getElementById("closeGameBtn")?.addEventListener("click", () => document.getElementById("gameModal").hidden = true);
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+  });
+});
 
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
