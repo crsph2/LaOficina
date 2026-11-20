@@ -80,12 +80,12 @@ onAuthStateChanged(auth, async (user) => {
     userProfile.hidden = false;
     
     // 🛑 CONTROL ESTRICTO DE ADMINISTRADOR 🛑
-    if (user.email === 'crsph2@gmail.com') {
-      currentUser.isAdmin = true;
-      if(adminBtn) adminBtn.hidden = false;
-    } else {
-      currentUser.isAdmin = false;
-      if(adminBtn) adminBtn.hidden = true; // Ocultar a la fuerza para cualquier otro
+    const userEmail = user.email ? user.email.trim().toLowerCase() : "";
+    const isAdminEmail = (userEmail === 'crsph2@gmail.com');
+    
+    currentUser.isAdmin = isAdminEmail;
+    if(adminBtn) {
+      adminBtn.style.display = isAdminEmail ? 'inline-flex' : 'none';
     }
 
     const userDocRef = doc(db, "users_data", user.uid);
@@ -103,7 +103,6 @@ onAuthStateChanged(auth, async (user) => {
       currentUser.hp = 100;
       currentUser.mutedUntil = 0;
       currentUser.immunity = false;
-      // Guardamos los datos iniciales en Firestore
       await setDoc(userDocRef, {
         name: currentUser.name,
         avatar: currentUser.avatar,
@@ -113,13 +112,12 @@ onAuthStateChanged(auth, async (user) => {
       });
     }
 
-    // Volvemos a forzar el estado por si el documento de la base de datos lo sobreescribió
-    currentUser.isAdmin = (user.email === 'crsph2@gmail.com');
-    if(adminBtn) adminBtn.hidden = !currentUser.isAdmin;
+    // Volvemos a forzar el estado
+    currentUser.isAdmin = isAdminEmail;
+    if(adminBtn) adminBtn.style.display = isAdminEmail ? 'inline-flex' : 'none';
 
     updateProfileUI();
     
-    // Cargar Configuración global
     onSnapshot(doc(db, "game_config", "main"), (docSnap) => {
       if(docSnap.exists()) {
         gameConfig = { ...gameConfig, ...docSnap.data() };
@@ -141,8 +139,8 @@ onAuthStateChanged(auth, async (user) => {
   } else {
     loginModal.hidden = false;
     userProfile.hidden = true;
-    appInitialized = false; // 🟢 IMPORTANTE: Permite reiniciar la app si cambias de cuenta
-    if(adminBtn) adminBtn.hidden = true;
+    appInitialized = false; 
+    if(adminBtn) adminBtn.style.display = 'none';
     currentUser = { uid: "", email: "", name: "", avatar: "", hp: 100, mutedUntil: 0, isAdmin: false, immunity: false };
   }
 });
@@ -227,31 +225,25 @@ let mySSList = [];
 function initSecretSanta() {
   if(!ssContent) return;
   
-  // 1. Escuchar estado general (si ya se sorteó o no)
   onSnapshot(doc(db, "ss_config", "main"), (docSnap) => {
     if(docSnap.exists()) ssDrawn = docSnap.data().drawn;
     else ssDrawn = false;
     renderSS();
   }, (error) => { 
     console.error("Error SS Config:", error); 
-    renderSS(); // Forzar render si falla la regla de Firebase
+    ssContent.innerHTML = `<div class="ss-card"><p style="color:var(--danger);">Error: Debes actualizar las Reglas de Firebase para usar el Amigo Secreto.</p></div>`;
   });
   
-  // 2. Escuchar mi lista de regalos
   onSnapshot(doc(db, "ss_lists", currentUser.uid), (docSnap) => {
-    if(docSnap.exists() && docSnap.data().gifts) {
-      mySSList = docSnap.data().gifts;
-    } else {
-      mySSList = [];
-    }
+    if(docSnap.exists() && docSnap.data().gifts) mySSList = docSnap.data().gifts;
+    else mySSList = [];
     renderSS();
   }, (error) => { 
     console.error("Error SS List:", error); 
     mySSList = [];
-    renderSS(); // Forzar render si falla la regla de Firebase
+    renderSS(); 
   });
   
-  // 3. Escuchar mi resultado (a quién le regalo)
   onSnapshot(doc(db, "ss_results", currentUser.uid), (docSnap) => {
     renderSS(docSnap.exists() ? docSnap.data() : null);
   }, (error) => { 
@@ -264,7 +256,7 @@ async function renderSS(myResult = null) {
   if(!ssContent) return;
   try {
     if (!Array.isArray(mySSList)) mySSList = [];
-    ssContent.innerHTML = ""; // Quita el "Cargando..."
+    ssContent.innerHTML = ""; 
 
     if (ssDrawn) {
       if (myResult && myResult.targetName) {
@@ -329,7 +321,7 @@ async function renderSS(myResult = null) {
     document.getElementById("drawSSBtn")?.addEventListener("click", drawSecretSanta);
   } catch (err) {
     console.error("Error al renderizar Amigo Secreto:", err);
-    ssContent.innerHTML = `<div class="ss-card"><p style="color:var(--danger);">Hubo un problema. Revisa los permisos de Firebase.</p></div>`;
+    ssContent.innerHTML = `<div class="ss-card"><p style="color:var(--danger);">Hubo un problema. Revisa las Reglas de Firebase.</p></div>`;
   }
 }
 
@@ -377,7 +369,7 @@ async function drawSecretSanta() {
 }
 
 // ============================================================
-//  OFICINA VIRTUAL, ARRASTRE Y FIX DE HP
+//  OFICINA VIRTUAL (CON RESIZE OBSERVER Y CÁLCULO EXACTO)
 // ============================================================
 const officeCanvas = document.getElementById("officeCanvas");
 const ctx = officeCanvas ? officeCanvas.getContext("2d") : null;
@@ -403,12 +395,18 @@ function getAvatarImage(url) {
 }
 
 function initOffice() {
-  if(!officeCanvas) return;
+  if(!officeCanvas || !canvasContainer) return;
   
-  requestAnimationFrame(() => {
-    setTimeout(resizeCanvas, 100);
+  // 🟢 SOLUCIÓN AL CANVAS EN BLANCO: ResizeObserver
+  const resizeObserver = new ResizeObserver(() => {
+    officeCanvas.width = canvasContainer.clientWidth;
+    officeCanvas.height = canvasContainer.clientHeight;
   });
-  window.addEventListener("resize", resizeCanvas);
+  resizeObserver.observe(canvasContainer);
+  
+  // Forzar tamaño inicial
+  officeCanvas.width = canvasContainer.clientWidth;
+  officeCanvas.height = canvasContainer.clientHeight;
 
   onSnapshot(positionsCollection, (snapshot) => {
     players = {}; 
@@ -442,11 +440,13 @@ function initOffice() {
     if (keys.hasOwnProperty(e.key)) { keys[e.key] = false; e.preventDefault(); }
   });
 
+  // 🟢 SOLUCIÓN A ARRASTRAR: Cálculo exacto de coordenadas
   officeCanvas.addEventListener("pointerdown", (e) => {
     officeCanvas.focus();
     const rect = officeCanvas.getBoundingClientRect();
     const scaleX = officeCanvas.width / rect.width;
     const scaleY = officeCanvas.height / rect.height;
+    
     let clickX = (e.clientX - rect.left) * scaleX;
     let clickY = (e.clientY - rect.top) * scaleY;
 
@@ -471,19 +471,15 @@ function initOffice() {
     const rect = officeCanvas.getBoundingClientRect();
     const scaleX = officeCanvas.width / rect.width;
     const scaleY = officeCanvas.height / rect.height;
+    
     let x = (e.clientX - rect.left) * scaleX - PLAYER_SIZE / 2;
     let y = (e.clientY - rect.top) * scaleY - PLAYER_SIZE / 2;
+    
     updateDoc(doc(db, "positions", draggedPlayerId), { x: x, y: y });
   });
 
   window.addEventListener("pointerup", () => { isDragging = false; draggedPlayerId = null; });
   requestAnimationFrame(gameLoop);
-}
-
-function resizeCanvas() {
-  if(!officeCanvas || !canvasContainer) return;
-  officeCanvas.width = canvasContainer.clientWidth || 800;
-  officeCanvas.height = canvasContainer.clientHeight || 300;
 }
 
 function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
