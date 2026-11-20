@@ -54,7 +54,6 @@ const adminMoneyLimit = document.getElementById("adminMoneyLimit");
 const ssContent = document.getElementById("ssContent");
 const ssLimitDisplay = document.getElementById("ssLimitDisplay");
 
-// Configuración global del juego (Valores por defecto seguros)
 let gameConfig = { muteDuration: 60, hpRegen: 1, moneyLimit: 10000 };
 
 // ============================================================
@@ -80,8 +79,14 @@ onAuthStateChanged(auth, async (user) => {
     loginModal.hidden = true;
     userProfile.hidden = false;
     
-    currentUser.isAdmin = (user.email === 'crsph2@gmail.com');
-    if(currentUser.isAdmin) adminBtn.hidden = false;
+    // 🛑 CONTROL ESTRICTO DE ADMINISTRADOR 🛑
+    if (user.email === 'crsph2@gmail.com') {
+      currentUser.isAdmin = true;
+      if(adminBtn) adminBtn.hidden = false;
+    } else {
+      currentUser.isAdmin = false;
+      if(adminBtn) adminBtn.hidden = true; // Ocultar a la fuerza para cualquier otro
+    }
 
     const userDocRef = doc(db, "users_data", user.uid);
     const userDoc = await getDoc(userDocRef);
@@ -98,11 +103,23 @@ onAuthStateChanged(auth, async (user) => {
       currentUser.hp = 100;
       currentUser.mutedUntil = 0;
       currentUser.immunity = false;
-      await setDoc(userDocRef, currentUser);
+      // Guardamos los datos iniciales en Firestore
+      await setDoc(userDocRef, {
+        name: currentUser.name,
+        avatar: currentUser.avatar,
+        hp: currentUser.hp,
+        mutedUntil: currentUser.mutedUntil,
+        immunity: currentUser.immunity
+      });
     }
+
+    // Volvemos a forzar el estado por si el documento de la base de datos lo sobreescribió
+    currentUser.isAdmin = (user.email === 'crsph2@gmail.com');
+    if(adminBtn) adminBtn.hidden = !currentUser.isAdmin;
 
     updateProfileUI();
     
+    // Cargar Configuración global
     onSnapshot(doc(db, "game_config", "main"), (docSnap) => {
       if(docSnap.exists()) {
         gameConfig = { ...gameConfig, ...docSnap.data() };
@@ -124,6 +141,9 @@ onAuthStateChanged(auth, async (user) => {
   } else {
     loginModal.hidden = false;
     userProfile.hidden = true;
+    appInitialized = false; // 🟢 IMPORTANTE: Permite reiniciar la app si cambias de cuenta
+    if(adminBtn) adminBtn.hidden = true;
+    currentUser = { uid: "", email: "", name: "", avatar: "", hp: 100, mutedUntil: 0, isAdmin: false, immunity: false };
   }
 });
 
@@ -205,29 +225,49 @@ let ssDrawn = false;
 let mySSList = [];
 
 function initSecretSanta() {
+  if(!ssContent) return;
+  
+  // 1. Escuchar estado general (si ya se sorteó o no)
   onSnapshot(doc(db, "ss_config", "main"), (docSnap) => {
     if(docSnap.exists()) ssDrawn = docSnap.data().drawn;
+    else ssDrawn = false;
     renderSS();
-  }, (error) => { console.error("Error SS Config:", error); renderSS(); });
+  }, (error) => { 
+    console.error("Error SS Config:", error); 
+    renderSS(); // Forzar render si falla la regla de Firebase
+  });
   
+  // 2. Escuchar mi lista de regalos
   onSnapshot(doc(db, "ss_lists", currentUser.uid), (docSnap) => {
-    if(docSnap.exists()) mySSList = docSnap.data().gifts || [];
-    else mySSList = [];
+    if(docSnap.exists() && docSnap.data().gifts) {
+      mySSList = docSnap.data().gifts;
+    } else {
+      mySSList = [];
+    }
     renderSS();
-  }, (error) => { console.error("Error SS List:", error); renderSS(); });
+  }, (error) => { 
+    console.error("Error SS List:", error); 
+    mySSList = [];
+    renderSS(); // Forzar render si falla la regla de Firebase
+  });
   
+  // 3. Escuchar mi resultado (a quién le regalo)
   onSnapshot(doc(db, "ss_results", currentUser.uid), (docSnap) => {
     renderSS(docSnap.exists() ? docSnap.data() : null);
-  }, (error) => { console.error("Error SS Result:", error); });
+  }, (error) => { 
+    console.error("Error SS Result:", error); 
+    renderSS(null);
+  });
 }
 
 async function renderSS(myResult = null) {
   if(!ssContent) return;
   try {
-    ssContent.innerHTML = "";
+    if (!Array.isArray(mySSList)) mySSList = [];
+    ssContent.innerHTML = ""; // Quita el "Cargando..."
 
     if (ssDrawn) {
-      if (myResult) {
+      if (myResult && myResult.targetName) {
         const gifts = myResult.targetGifts || [];
         let giftsHTML = gifts.map(g => `<li>${g}</li>`).join("");
         if(gifts.length === 0) giftsHTML = "<li>No puso ideas de regalo 😢</li>";
@@ -289,7 +329,7 @@ async function renderSS(myResult = null) {
     document.getElementById("drawSSBtn")?.addEventListener("click", drawSecretSanta);
   } catch (err) {
     console.error("Error al renderizar Amigo Secreto:", err);
-    ssContent.innerHTML = `<div class="ss-card"><p style="color:var(--danger);">Hubo un problema de conexión con el Amigo Secreto. Revisa los permisos de Firebase o recarga la página.</p></div>`;
+    ssContent.innerHTML = `<div class="ss-card"><p style="color:var(--danger);">Hubo un problema. Revisa los permisos de Firebase.</p></div>`;
   }
 }
 
@@ -301,34 +341,39 @@ window.removeGift = async (index) => {
 async function drawSecretSanta() {
   if(!confirm("¿Estás seguro? Se asignarán los amigos secretos y no se podrá deshacer.")) return;
   
-  const listsSnap = await getDocs(collection(db, "ss_lists"));
-  let participants = [];
-  listsSnap.forEach(d => participants.push(d.data()));
+  try {
+    const listsSnap = await getDocs(collection(db, "ss_lists"));
+    let participants = [];
+    listsSnap.forEach(d => participants.push(d.data()));
 
-  if (participants.length < 3) return alert("Se necesitan al menos 3 personas para sortear.");
+    if (participants.length < 3) return alert("Se necesitan al menos 3 personas para sortear.");
 
-  let shuffled = [];
-  let success = false;
-  while(!success) {
-    shuffled = [...participants].sort(() => Math.random() - 0.5);
-    success = true;
-    for (let i = 0; i < participants.length; i++) {
-      if (participants[i].uid === shuffled[i].uid) { success = false; break; }
+    let shuffled = [];
+    let success = false;
+    while(!success) {
+      shuffled = [...participants].sort(() => Math.random() - 0.5);
+      success = true;
+      for (let i = 0; i < participants.length; i++) {
+        if (participants[i].uid === shuffled[i].uid) { success = false; break; }
+      }
     }
-  }
 
-  for (let i = 0; i < participants.length; i++) {
-    const giver = participants[i];
-    const receiver = shuffled[i];
-    await setDoc(doc(db, "ss_results", giver.uid), {
-      targetUid: receiver.uid,
-      targetName: receiver.name,
-      targetGifts: receiver.gifts || []
-    });
-  }
+    for (let i = 0; i < participants.length; i++) {
+      const giver = participants[i];
+      const receiver = shuffled[i];
+      await setDoc(doc(db, "ss_results", giver.uid), {
+        targetUid: receiver.uid,
+        targetName: receiver.name,
+        targetGifts: receiver.gifts || []
+      });
+    }
 
-  await setDoc(doc(db, "ss_config", "main"), { drawn: true });
-  alert("¡Sorteo realizado! Cada persona ya puede ver a quién le regala.");
+    await setDoc(doc(db, "ss_config", "main"), { drawn: true });
+    alert("¡Sorteo realizado! Cada persona ya puede ver a quién le regala.");
+  } catch (error) {
+    console.error(error);
+    alert("Error al realizar el sorteo. Verifica las reglas de Firebase.");
+  }
 }
 
 // ============================================================
@@ -360,7 +405,6 @@ function getAvatarImage(url) {
 function initOffice() {
   if(!officeCanvas) return;
   
-  // SOLUCIÓN: Esperar a que el navegador pinte el layout antes de medir
   requestAnimationFrame(() => {
     setTimeout(resizeCanvas, 100);
   });
@@ -571,6 +615,21 @@ function drawPlayer(x, y, avatarUrl, name, bubbleText, bubbleTime, hp = 100, mut
     const timeElapsed = Date.now() - bubbleTime;
     if (timeElapsed < 5000) drawBubble(x + PLAYER_SIZE / 2, y - 30, bubbleText, timeElapsed);
   }
+}
+
+function drawBubble(cx, cy, text, timeElapsed) {
+  if(!ctx) return;
+  ctx.font = "12px Inter, sans-serif";
+  let displayText = text; if (displayText.length > 30) displayText = displayText.substring(0, 27) + "...";
+  const metrics = ctx.measureText(displayText); const textWidth = metrics.width; const padding = 8; const bubbleWidth = textWidth + padding * 2; const bubbleHeight = 28;
+  let opacity = 1; if (timeElapsed < 300) opacity = timeElapsed / 300; else if (timeElapsed > 4500) opacity = 1 - (timeElapsed - 4500) / 500;
+  ctx.globalAlpha = Math.max(0, opacity);
+  const bx = cx - bubbleWidth / 2; const by = cy - bubbleHeight - 10;
+  ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#333333"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); if (ctx.roundRect) { ctx.roundRect(bx, by, bubbleWidth, bubbleHeight, 6); } else { ctx.rect(bx, by, bubbleWidth, bubbleHeight); } ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - 5, by + bubbleHeight); ctx.lineTo(cx, by + bubbleHeight + 8); ctx.lineTo(cx + 5, by + bubbleHeight); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#000000"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(displayText, cx, by + bubbleHeight / 2);
+  ctx.globalAlpha = 1.0;
 }
 
 // ============================================================
